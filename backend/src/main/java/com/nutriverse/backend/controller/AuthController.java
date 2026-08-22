@@ -4,6 +4,7 @@ import com.nutriverse.backend.dto.LoginRequest;
 import com.nutriverse.backend.dto.RegisterRequest;
 import com.nutriverse.backend.model.User;
 import com.nutriverse.backend.repository.UserRepository;
+import com.nutriverse.backend.service.JwtService;
 
 import jakarta.validation.Valid;
 
@@ -19,13 +20,17 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository) {
+    public AuthController(
+            UserRepository userRepository,
+            JwtService jwtService) {
+
         this.userRepository = userRepository;
+        this.jwtService = jwtService;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
-    // REGISTER
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request) {
@@ -34,7 +39,8 @@ public class AuthController {
             return ResponseEntity
                     .badRequest()
                     .body(Map.of(
-                            "message", "Username already exists"
+                            "message",
+                            "Username already exists"
                     ));
         }
 
@@ -59,7 +65,6 @@ public class AuthController {
     }
 
 
-    // LOGIN
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @Valid @RequestBody LoginRequest request) {
@@ -72,7 +77,8 @@ public class AuthController {
             return ResponseEntity
                     .badRequest()
                     .body(Map.of(
-                            "message", "Invalid username or password"
+                            "message",
+                            "Invalid username or password"
                     ));
         }
 
@@ -86,13 +92,21 @@ public class AuthController {
             return ResponseEntity
                     .badRequest()
                     .body(Map.of(
-                            "message", "Invalid username or password"
+                            "message",
+                            "Invalid username or password"
                     ));
         }
+
+        String token = jwtService.generateToken(
+                user.getId(),
+                user.getUsername(),
+                user.getRole()
+        );
 
         return ResponseEntity.ok(
                 Map.of(
                         "message", "Login successful",
+                        "token", token,
                         "username", user.getUsername(),
                         "name", user.getName(),
                         "role", user.getRole()
