@@ -1,5 +1,6 @@
 package com.nutriverse.backend.controller;
 
+import com.nutriverse.backend.dto.LoginRequest;
 import com.nutriverse.backend.dto.RegisterRequest;
 import com.nutriverse.backend.model.User;
 import com.nutriverse.backend.repository.UserRepository;
@@ -23,6 +24,8 @@ public class AuthController {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
+
+    // REGISTER
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request) {
@@ -46,16 +49,54 @@ public class AuthController {
 
         User savedUser = userRepository.save(user);
 
-        long count = userRepository.count();
-
         return ResponseEntity.ok(
                 Map.of(
                         "message", "Account created successfully",
                         "username", savedUser.getUsername(),
-                        "id", savedUser.getId(),
-                        "userCount", count
+                        "id", savedUser.getId()
                 )
         );
     }
-    }
 
+
+    // LOGIN
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        User user = userRepository
+                .findByUsername(request.getUsername())
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message", "Invalid username or password"
+                    ));
+        }
+
+        boolean passwordMatches =
+                passwordEncoder.matches(
+                        request.getPassword(),
+                        user.getPasswordHash()
+                );
+
+        if (!passwordMatches) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message", "Invalid username or password"
+                    ));
+        }
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message", "Login successful",
+                        "username", user.getUsername(),
+                        "name", user.getName(),
+                        "role", user.getRole()
+                )
+        );
+    }
+}
