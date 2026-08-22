@@ -1,0 +1,468 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+/* =========================
+   PAGE BACKGROUND
+========================= */
+
+.auth-page {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 35px;
+
+    background:
+            linear-gradient(
+                    rgba(15, 45, 28, 0.82),
+                    rgba(12, 32, 21, 0.88)
+            ),
+            url("../assets/nutrition-bg.jpg");
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* =========================
+   MAIN CARD
+========================= */
+
+.auth-container {
+    width: min(1050px, 95vw);
+    min-height: 650px;
+
+    display: grid;
+    grid-template-columns: 55% 45%;
+
+    overflow: hidden;
+
+    background:
+            linear-gradient(
+                    90deg,
+                    rgba(5, 24, 15, 0.58),
+                    rgba(5, 30, 17, 0.12)
+            ),
+            url("../assets/nutrition-bg.jpg");
+
+    background-size: cover;
+    background-position: center;
+
+    border-radius: 10px;
+
+    box-shadow:
+            0 30px 70px rgba(0, 0, 0, 0.38);
+}
+
+/* =========================
+   LEFT SIDE
+========================= */
+
+.left-content {
+    padding: 45px;
+
+    display: flex;
+    flex-direction: column;
+
+    color: white;
+}
+
+.top-logo {
+    font-size: 13px;
+    letter-spacing: 3px;
+    font-weight: 800;
+}
+
+.hero-content {
+    margin-top: auto;
+    margin-bottom: 60px;
+}
+
+.hero-content h1 {
+    margin: 0;
+
+    font-size: 58px;
+    line-height: 1;
+
+    font-weight: 700;
+
+    text-shadow:
+            0 3px 15px rgba(0, 0, 0, 0.35);
+}
+
+.hero-content p {
+    width: 340px;
+
+    margin-top: 20px;
+
+    font-size: 17px;
+    line-height: 1.6;
+
+    color: rgba(255, 255, 255, 0.92);
+}
+
+/* LEFT SMALL LOGIN BOX */
+
+.corner-link {
+    width: fit-content;
+
+    padding: 13px 18px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    background:
+            rgba(255, 255, 255, 0.14);
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    border-radius: 6px;
+
+    border:
+            1px solid rgba(255, 255, 255, 0.12);
+}
+
+.corner-link span {
+    font-size: 11px;
+
+    color:
+            rgba(255, 255, 255, 0.75);
+}
+
+.corner-link a {
+    color: white;
+
+    text-decoration: none;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* =========================
+   RIGHT GLASS PANEL
+========================= */
+
+.glass-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background:
+            rgba(16, 44, 28, 0.28);
+
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+
+    border-left:
+            1px solid rgba(255, 255, 255, 0.17);
+}
+
+.form-content {
+    width: 76%;
+    max-width: 360px;
+
+    color: white;
+}
+
+/* =========================
+   BRAND
+========================= */
+
+.brand {
+    font-size: 31px;
+    font-weight: 800;
+
+    letter-spacing: -1px;
+}
+
+.brand span {
+    color: #aee0b8;
+}
+
+.tagline {
+    margin-top: 3px;
+    margin-bottom: 38px;
+
+    font-size: 9px;
+    letter-spacing: 2.3px;
+
+    color:
+            rgba(255, 255, 255, 0.7);
+}
+
+.form-content h2 {
+    margin-bottom: 26px;
+
+    font-size: 28px;
+    font-weight: 500;
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+.form-group {
+    margin-bottom: 17px;
+}
+
+.form-group label {
+    display: block;
+
+    margin: 0 0 6px 10px;
+
+    font-size: 11px;
+
+    color:
+            rgba(255, 255, 255, 0.92);
+}
+
+.form-group input {
+    width: 100%;
+
+    padding: 13px 18px;
+
+    border:
+            1px solid rgba(255, 255, 255, 0.35);
+
+    border-radius: 25px;
+
+    outline: none;
+
+    background:
+            rgba(255, 255, 255, 0.78);
+
+    color: #173526;
+
+    font-size: 13px;
+
+    transition: 0.25s;
+}
+
+.form-group input::placeholder {
+    color: #758079;
+}
+
+.form-group input:focus {
+    background:
+            rgba(255, 255, 255, 0.96);
+
+    border-color:
+            rgba(255, 255, 255, 0.85);
+
+    box-shadow:
+            0 0 0 3px rgba(183, 227, 191, 0.15);
+
+    transform: scale(1.01);
+}
+
+/* =========================
+   MAIN BUTTON
+========================= */
+
+.primary-btn {
+    width: 100%;
+
+    margin-top: 10px;
+
+    padding: 13px;
+
+    border: none;
+    border-radius: 25px;
+
+    background: white;
+
+    color: #205738;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.25s;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+            0 8px 22px rgba(0, 0, 0, 0.2);
+
+    background: #f4fff6;
+}
+
+/* =========================
+   OR DIVIDER
+========================= */
+
+.or-divider {
+    display: flex;
+    align-items: center;
+
+    margin: 17px 0;
+
+    font-size: 11px;
+
+    color:
+            rgba(255, 255, 255, 0.72);
+}
+
+.or-divider::before,
+.or-divider::after {
+    content: "";
+
+    flex: 1;
+
+    height: 1px;
+
+    background:
+            rgba(255, 255, 255, 0.38);
+}
+
+.or-divider span {
+    margin: 0 12px;
+}
+
+/* =========================
+   GUEST BUTTON
+========================= */
+
+.guest-btn {
+    width: 100%;
+
+    padding: 12px;
+
+    border:
+            1px solid rgba(255, 255, 255, 0.55);
+
+    border-radius: 25px;
+
+    background:
+            rgba(255, 255, 255, 0.06);
+
+    color: white;
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition: 0.25s;
+}
+
+.guest-btn:hover {
+    background:
+            rgba(255, 255, 255, 0.17);
+
+    transform: translateY(-1px);
+}
+
+/* =========================
+   FORGOT PASSWORD
+========================= */
+
+.forgot {
+    display: block;
+
+    margin-left: auto;
+    margin-top: -5px;
+    margin-bottom: 6px;
+
+    border: none;
+
+    background: transparent;
+
+    color:
+            rgba(255, 255, 255, 0.82);
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.forgot:hover {
+    color: white;
+}
+
+/* =========================
+   BOTTOM LINK
+========================= */
+
+.bottom-link {
+    margin-top: 20px;
+
+    text-align: center;
+
+    font-size: 12px;
+
+    color:
+            rgba(255, 255, 255, 0.8);
+}
+
+.bottom-link a {
+    color: white;
+
+    font-weight: 700;
+
+    text-decoration: none;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 750px) {
+
+    .auth-page {
+        padding: 15px;
+    }
+
+    .auth-container {
+        display: block;
+
+        min-height: 700px;
+    }
+
+    .left-content {
+        height: 220px;
+
+        padding: 25px;
+    }
+
+    .hero-content {
+        margin-top: auto;
+        margin-bottom: 5px;
+    }
+
+    .hero-content h1 {
+        font-size: 38px;
+    }
+
+    .hero-content p {
+        display: none;
+    }
+
+    .corner-link {
+        display: none;
+    }
+
+    .glass-panel {
+        min-height: 500px;
+
+        padding: 35px 0;
+
+        background:
+                rgba(11, 42, 25, 0.68);
+    }
+
+    .form-content {
+        width: 84%;
+    }
+}
