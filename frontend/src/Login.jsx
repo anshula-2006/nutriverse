@@ -1,110 +1,215 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import "./styles/Auth.css";
 
 function Login() {
-    const handleSubmit = (e) => {
-        e.preventDefault();
-    };
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
 
-    return (
-        <div className="auth-page">
-            <div className="auth-container">
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-                <div className="left-content">
+    setMessage("");
 
-                    <div className="top-logo">
-                        NUTRIVERSE AI
-                    </div>
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/auth/login",
+        {
+          method: "POST",
 
-                    <div className="hero-content">
-                        <h1>
-                            Welcome
-                            <br />
-                            back.
-                        </h1>
+          headers: {
+            "Content-Type": "application/json",
+          },
 
-                        <p>
-                            Your nutrition companion is ready
-                            whenever you are.
-                        </p>
-                    </div>
+          body: JSON.stringify({
+            username,
+            password,
+          }),
+        }
+      );
 
-                    <div className="corner-link">
-                        <span>New here?</span>
-                        <Link to="/register">Join us →</Link>
-                    </div>
+      const data = await response.json();
 
-                </div>
+      if (!response.ok) {
+        setMessage(data.message || "Invalid username or password");
+        return;
+      }
 
-                <div className="glass-panel">
+      // Save JWT
+      localStorage.setItem("token", data.token);
 
-                    <div className="form-content">
+      // Save basic user details
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          name: data.name,
+          username: data.username,
+          role: data.role,
+        })
+      );
 
-                        <div className="brand">
-                            Nutri<span>Verse</span>
-                        </div>
+      setMessage("Login successful!");
 
-                        <p className="tagline">
-                            YOUR AI NUTRITION COMPANION
-                        </p>
+      console.log("Logged in user:", data);
 
-                        <h2>Sign in</h2>
+    } catch (error) {
+      console.error(error);
+      setMessage("Could not connect to backend");
+    }
+  };
 
-                        <form onSubmit={handleSubmit}>
+  return (
+    <div className="auth-page">
 
-                            <div className="form-group">
-                                <label>Username</label>
-                                <input
-                                    type="text"
-                                    placeholder="Your username"
-                                    required
-                                />
-                            </div>
+      <div className="auth-container">
 
-                            <div className="form-group">
-                                <label>Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="Your password"
-                                    required
-                                />
-                            </div>
+        {/* LEFT SIDE */}
+        <div className="left-content">
 
-                            <button
-                                type="button"
-                                className="forgot"
-                            >
-                                Forgot password?
-                            </button>
+          <div className="top-logo">
+            NUTRIVERSE AI
+          </div>
 
-                            <button className="primary-btn">
-                                Sign In
-                            </button>
+          <div className="hero-content">
 
-                        </form>
+            <h1>
+              Welcome
+              <br />
+              back.
+            </h1>
 
-                        <div className="or-divider">
-                            <span>or</span>
-                        </div>
+            <p>
+              Your nutrition companion is ready
+              whenever you are.
+            </p>
 
-                        <button className="guest-btn">
-                            Continue as Guest →
-                        </button>
+          </div>
 
-                        <p className="bottom-link">
-                            New here?{" "}
-                            <Link to="/register">
-                                Create account
-                            </Link>
-                        </p>
+          <div className="corner-link">
 
-                    </div>
+            <span>New here?</span>
 
-                </div>
+            <Link to="/register">
+              Join us →
+            </Link>
 
-            </div>
+          </div>
+
         </div>
-    );
+
+
+        {/* RIGHT SIDE */}
+        <div className="glass-panel">
+
+          <div className="form-content">
+
+            <div className="brand">
+              Nutri<span>Verse</span>
+            </div>
+
+            <p className="tagline">
+              YOUR AI NUTRITION COMPANION
+            </p>
+
+            <h2>Sign in</h2>
+
+
+            <form onSubmit={handleSubmit}>
+
+              <div className="form-group">
+
+                <label>Username</label>
+
+                <input
+                  type="text"
+                  placeholder="Your username"
+                  value={username}
+                  onChange={(e) =>
+                    setUsername(e.target.value)
+                  }
+                  required
+                />
+
+              </div>
+
+
+              <div className="form-group">
+
+                <label>Password</label>
+
+                <input
+                  type="password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) =>
+                    setPassword(e.target.value)
+                  }
+                  required
+                />
+
+              </div>
+
+
+              <button
+                type="button"
+                className="forgot"
+              >
+                Forgot password?
+              </button>
+
+
+              {message && (
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "13px",
+                    margin: "12px 0"
+                  }}
+                >
+                  {message}
+                </p>
+              )}
+
+
+              <button
+                className="primary-btn"
+                type="submit"
+              >
+                Sign In
+              </button>
+
+            </form>
+
+
+            <div className="or-divider">
+              <span>or</span>
+            </div>
+
+
+            <button className="guest-btn">
+              Continue as Guest →
+            </button>
+
+
+            <p className="bottom-link">
+
+              New here?{" "}
+
+              <Link to="/register">
+                Create account
+              </Link>
+
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
 }
 
 export default Login;
