@@ -16,20 +16,19 @@ function Register() {
 
     try {
 
+      // 1. Register user
       const response = await fetch(
         "http://localhost:8080/api/auth/register",
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           },
-
           body: JSON.stringify({
             name,
             username,
-            password,
-          }),
+            password
+          })
         }
       );
 
@@ -40,14 +39,45 @@ function Register() {
         return;
       }
 
-      setMessage("Account created successfully!");
+      // 2. Automatically login after registration
+      const loginResponse = await fetch(
+        "http://localhost:8080/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username,
+            password
+          })
+        }
+      );
 
-      setTimeout(() => {
-        navigate("/login");
-      }, 1000);
+      const loginData = await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        setMessage("Account created, but login failed.");
+        return;
+      }
+
+      // 3. Save login information
+      localStorage.setItem("token", loginData.token);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: loginData.userId,
+          name: loginData.name,
+          username: loginData.username,
+          role: loginData.role
+        })
+      );
+
+      // 4. Go directly to chat
+      navigate("/chat");
 
     } catch (error) {
-      console.error(error);
       setMessage("Could not connect to backend");
     }
   };
@@ -64,7 +94,6 @@ function Register() {
           </div>
 
           <div className="hero-content">
-
             <h1>
               Eat better,
               <br />
@@ -75,21 +104,17 @@ function Register() {
               Nutrition that listens, learns,
               and grows with you.
             </p>
-
           </div>
 
           <div className="corner-link">
-
             <span>Already here?</span>
 
             <Link to="/login">
               Sign in →
             </Link>
-
           </div>
 
         </div>
-
 
         <div className="glass-panel">
 
@@ -105,66 +130,49 @@ function Register() {
 
             <h2>Create account</h2>
 
-
             <form onSubmit={handleSubmit}>
 
               <div className="form-group">
-
                 <label>Name</label>
 
                 <input
                   type="text"
                   placeholder="What should we call you?"
                   value={name}
-                  onChange={(e) =>
-                    setName(e.target.value)
-                  }
+                  onChange={(e) => setName(e.target.value)}
                   required
                 />
-
               </div>
 
-
               <div className="form-group">
-
                 <label>Username</label>
 
                 <input
                   type="text"
                   placeholder="Choose a username"
                   value={username}
-                  onChange={(e) =>
-                    setUsername(e.target.value)
-                  }
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                 />
-
               </div>
 
-
               <div className="form-group">
-
                 <label>Password</label>
 
                 <input
                   type="password"
                   placeholder="Create a password"
                   value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
-                  }
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-
               </div>
-
 
               {message && (
                 <p style={{ textAlign: "center" }}>
                   {message}
                 </p>
               )}
-
 
               <button
                 className="primary-btn"
@@ -175,25 +183,20 @@ function Register() {
 
             </form>
 
-
             <div className="or-divider">
               <span>or</span>
             </div>
-
 
             <button className="guest-btn">
               Continue as Guest →
             </button>
 
-
             <p className="bottom-link">
-
               Already have an account?{" "}
 
               <Link to="/login">
                 Sign in
               </Link>
-
             </p>
 
           </div>

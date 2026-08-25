@@ -43,12 +43,14 @@ function Login() {
       localStorage.setItem(
         "user",
         JSON.stringify({
+          id: data.userId,
           name: data.name,
           username: data.username,
           role: data.role,
         })
       );
 
+      navigate("/chat");
       setMessage("Login successful!");
 
       console.log("Logged in user:", data);

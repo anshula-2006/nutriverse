@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Register from "./Register.jsx";
 import Login from "./Login.jsx";
+import Chat from "./Chat.jsx";
 
 function App() {
     return (
@@ -9,6 +10,7 @@ function App() {
             <Route path="/" element={<Navigate to="/register" />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/chat" element={<Chat />} />
         </Routes>
     );
 }

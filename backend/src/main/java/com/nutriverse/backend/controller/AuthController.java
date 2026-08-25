@@ -108,6 +108,7 @@ public class AuthController {
                 Map.of(
                         "message", "Login successful",
                         "token", token,
+                        "userId", user.getId(),
                         "username", user.getUsername(),
                         "name", user.getName(),
                         "role", user.getRole()
