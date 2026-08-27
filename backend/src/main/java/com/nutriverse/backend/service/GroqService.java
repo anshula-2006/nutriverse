@@ -45,7 +45,8 @@ public class GroqService {
     // MAIN CHAT METHOD
     // =========================================================
 
-    public String getReply(
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+public String getReply(
             String conversationId,
             String userMessage
     ) {
@@ -293,7 +294,7 @@ public class GroqService {
     // =========================================================
 
     private String extractReply(
-            Map response
+            Map<String, Object> response
     ) {
 
         if (response == null) {
