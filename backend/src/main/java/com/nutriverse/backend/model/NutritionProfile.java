@@ -16,6 +16,7 @@ public class NutritionProfile {
     private Double height;
     private Double weight;
     private String gender;
+    private String dietType;
 
     // Lifestyle and goal
     private String activityLevel;
@@ -30,6 +31,13 @@ public class NutritionProfile {
     public NutritionProfile() {
     }
 
+    public String getDietType() {
+        return dietType;
+    }
+
+    public void setDietType(String dietType) {
+        this.dietType = dietType;
+    }
     public NutritionProfile(String userId) {
         this.userId = userId;
     }

@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./styles/Auth.css";
 
 function Login() {
+
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -13,19 +16,18 @@ function Login() {
     setMessage("");
 
     try {
+
       const response = await fetch(
         "http://localhost:8080/api/auth/login",
         {
           method: "POST",
-
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           },
-
           body: JSON.stringify({
             username,
-            password,
-          }),
+            password
+          })
         }
       );
 
@@ -39,27 +41,26 @@ function Login() {
       // Save JWT
       localStorage.setItem("token", data.token);
 
-      // Save basic user details
+      // Save logged-in user
       localStorage.setItem(
         "user",
         JSON.stringify({
           id: data.userId,
           name: data.name,
           username: data.username,
-          role: data.role,
+          role: data.role
         })
       );
 
+      // Redirect to chatbot
       navigate("/chat");
-      setMessage("Login successful!");
-
-      console.log("Logged in user:", data);
 
     } catch (error) {
       console.error(error);
       setMessage("Could not connect to backend");
     }
   };
+
 
   return (
     <div className="auth-page">
@@ -82,8 +83,8 @@ function Login() {
             </h1>
 
             <p>
-              Your nutrition companion is ready
-              whenever you are.
+              Your nutrition companion is ready whenever
+              you are.
             </p>
 
           </div>
@@ -125,7 +126,7 @@ function Login() {
 
                 <input
                   type="text"
-                  placeholder="Your username"
+                  placeholder="Enter your username"
                   value={username}
                   onChange={(e) =>
                     setUsername(e.target.value)
@@ -142,7 +143,7 @@ function Login() {
 
                 <input
                   type="password"
-                  placeholder="Your password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) =>
                     setPassword(e.target.value)
@@ -153,20 +154,30 @@ function Login() {
               </div>
 
 
-              <button
-                type="button"
-                className="forgot"
+              <div
+                style={{
+                  textAlign: "right",
+                  marginBottom: "15px"
+                }}
               >
-                Forgot password?
-              </button>
+                <Link
+                  to="/forgot-password"
+                  style={{
+                    color: "white",
+                    fontSize: "13px",
+                    textDecoration: "none"
+                  }}
+                >
+                  Forgot password?
+                </Link>
+              </div>
 
 
               {message && (
                 <p
                   style={{
                     textAlign: "center",
-                    fontSize: "13px",
-                    margin: "12px 0"
+                    marginBottom: "12px"
                   }}
                 >
                   {message}
@@ -189,7 +200,10 @@ function Login() {
             </div>
 
 
-            <button className="guest-btn">
+            <button
+              className="guest-btn"
+              type="button"
+            >
               Continue as Guest →
             </button>
 
