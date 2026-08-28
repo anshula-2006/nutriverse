@@ -1,214 +1,225 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import chatWelcome from "./assets/images/chat-welcome.jpg";
+import "./Chat.css";
+
+const API = "http://localhost:8080";
+
+const suggestions = [
+  ["🥗", "Plan my meals", "Help me plan my meals for today"],
+  ["🍲", "Suggest 3 recipes", "Suggest 3 healthy recipes for my next meal"],
+  ["💪", "Protein goal", "How can I reach my protein goal today?"],
+  ["🔄", "Healthy swap", "Suggest a healthier alternative for a food I like"]
+];
 
 function Chat() {
+  const navigate = useNavigate();
+  const endRef = useRef(null);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const messagesEndRef = useRef(null);
-
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  // Auto-scroll whenever a new message appears
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  async function sendMessage(text = message) {
+    text = text.trim();
 
-  const sendMessage = async () => {
-    if (!message.trim() || loading) return;
+    if (!text || loading) return;
 
-    if (!user?.id) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Please login first."
-        }
-      ]);
-
+    if (!user.id) {
+      navigate("/login");
       return;
     }
 
-    const userMessage = message.trim();
-
-    // Show user's message immediately
-    setMessages((prev) => [
+    setMessages(prev => [
       ...prev,
-      {
-        role: "user",
-        content: userMessage
-      }
+      { role: "user", content: text }
     ]);
 
     setMessage("");
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "http://localhost:8080/api/chat",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json"
-          },
-
-          body: JSON.stringify({
-            conversationId: user.id,
-            message: userMessage
-          })
-        }
-      );
+      const response = await fetch(`${API}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: user.id,
+          message: text
+        })
+      });
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Show Nutri reply
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.reply
-          }
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content:
-              data.message ||
-              "Something went wrong."
-          }
-        ]);
-      }
-
-    } catch (error) {
-      console.error(error);
-
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "Could not connect to the backend."
+          content: response.ok
+            ? data.reply
+            : data.message || "Something went wrong."
+        }
+      ]);
+
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Could not connect to NutriVerse."
         }
       ]);
 
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-  };
-
+  }
 
   return (
-    <div style={styles.page}>
+    <div className="chat-page">
 
-      <div style={styles.chatContainer}>
+      <aside className="chat-sidebar">
 
-        {/* HEADER */}
-        <div style={styles.header}>
+        <div className="chat-brand">
+          <span>🌿</span>
 
-          <div style={styles.botInfo}>
+          <div>
+            <h2>NutriVerse</h2>
+            <small>Smart Nutrition</small>
+          </div>
+        </div>
 
-            <div style={styles.avatar}>
-              🥗
-            </div>
+        <nav className="chat-nav">
 
-            <div>
-              <h2 style={styles.botName}>
-                Nutri
-              </h2>
+          <button onClick={() => navigate("/dashboard")}>
+            🏠 Dashboard
+          </button>
 
-              <p style={styles.subtitle}>
-                Your AI Nutrition Companion
-              </p>
-            </div>
+          <button disabled>🍽️ Meals</button>
+          <button disabled>📷 Food Scanner</button>
 
+          <button className="active">
+            ✨ AI Assistant
+          </button>
+
+          <button disabled>📈 Progress</button>
+          <button disabled>🛒 Grocery List</button>
+          <button disabled>⚙️ Settings</button>
+
+        </nav>
+
+        <div className="chat-profile">
+
+          <div className="chat-profile-icon">
+            {user.name?.[0]?.toUpperCase() || "U"}
           </div>
 
-
-          <div style={styles.online}>
-            <span style={styles.onlineDot}></span>
-            Online
+          <div>
+            <strong>{user.name || "User"}</strong>
+            <small>NutriVerse Member</small>
           </div>
 
         </div>
 
+      </aside>
 
-        {/* CHAT MESSAGES */}
-        <div style={styles.messagesArea}>
+
+      <main className="chat-main">
+
+        <header className="chat-header">
+
+          <div>
+            <h2>Nutri AI Assistant 🌱</h2>
+            <p>Your personalized nutrition companion</p>
+          </div>
+
+          <span className="chat-online">
+            ● Online
+          </span>
+
+        </header>
+
+
+        <section className="chat-messages">
 
           {messages.length === 0 && (
-            <div style={styles.welcome}>
+            <div className="chat-welcome">
 
-              <div style={styles.welcomeIcon}>
-                🥗
+              <div className="chat-welcome-text">
+
+                <span className="chat-label">
+                  YOUR NUTRITION COMPANION
+                </span>
+
+                <h1>
+                  Hey {user.name || "there"} 👋
+                </h1>
+
+                <p>
+                  What would you like to work on today?
+                </p>
+
+                <div className="chat-suggestions">
+
+                  {suggestions.map(([icon, title, prompt]) => (
+                    <button
+                      key={title}
+                      onClick={() => sendMessage(prompt)}
+                    >
+                      <span>{icon}</span>
+                      {title}
+                    </button>
+                  ))}
+
+                </div>
+
               </div>
 
-              <h2>
-                Hey {user?.name || "there"} 👋
-              </h2>
-
-              <p style={styles.welcomeText}>
-                I'm Nutri, your personal AI
-                nutrition companion.
-              </p>
-
-              <p style={styles.welcomeText}>
-                What would you like help with
-                today?
-              </p>
+              <img
+                src={chatWelcome}
+                alt="Healthy balanced meal"
+              />
 
             </div>
           )}
 
 
           {messages.map((msg, index) => (
-
             <div
               key={index}
-              style={{
-                ...styles.messageRow,
-
-                justifyContent:
-                  msg.role === "user"
-                    ? "flex-end"
-                    : "flex-start"
-              }}
+              className={`chat-message ${msg.role}`}
             >
 
-              <div
-                style={{
-                  ...styles.messageBubble,
-
-                  ...(msg.role === "user"
-                    ? styles.userBubble
-                    : styles.botBubble)
-                }}
-              >
-
-                <div style={styles.sender}>
-
-                  {msg.role === "user"
-                    ? "You"
-                    : "Nutri"}
-
+              {msg.role === "assistant" && (
+                <div className="chat-bot-avatar">
+                  🌿
                 </div>
+              )}
 
-                <div style={styles.messageText}>
-                  {msg.content}
+              <div className="chat-message-content">
+
+                <small>
+                  {msg.role === "assistant" ? "Nutri" : "You"}
+                </small>
+
+                <div className="chat-bubble">
+
+                  {msg.role === "assistant"
+                    ? <FormatText text={msg.content} />
+                    : msg.content}
+
                 </div>
 
               </div>
@@ -217,309 +228,133 @@ function Chat() {
           ))}
 
 
-          {/* LOADING BUBBLE */}
           {loading && (
+            <div className="chat-message assistant">
 
-            <div
-              style={{
-                ...styles.messageRow,
-                justifyContent: "flex-start"
-              }}
-            >
+              <div className="chat-bot-avatar">
+                🌿
+              </div>
 
-              <div
-                style={{
-                  ...styles.messageBubble,
-                  ...styles.botBubble
-                }}
-              >
+              <div className="chat-message-content">
+                <small>Nutri</small>
 
-                <div style={styles.sender}>
-                  Nutri
+                <div className="chat-bubble chat-typing">
+                  ● ● ●
                 </div>
-
-                <div style={styles.thinking}>
-                  <span>●</span>
-                  <span>●</span>
-                  <span>●</span>
-                </div>
-
               </div>
 
             </div>
           )}
 
+          <div ref={endRef} />
 
-          <div ref={messagesEndRef} />
-
-        </div>
+        </section>
 
 
-        {/* INPUT AREA */}
-        <div style={styles.inputArea}>
+        <div className="chat-input-area">
 
-          <input
-            type="text"
-            placeholder="Ask Nutri something..."
+          <textarea
+            rows="1"
+            placeholder="Ask Nutri anything about food or nutrition..."
             value={message}
-            onChange={(e) =>
-              setMessage(e.target.value)
-            }
-            onKeyDown={handleKeyDown}
+            onChange={e => setMessage(e.target.value)}
+            onKeyDown={handleKey}
             disabled={loading}
-            style={styles.input}
           />
 
-
           <button
-            onClick={sendMessage}
-            disabled={
-              loading || !message.trim()
-            }
-            style={{
-              ...styles.sendButton,
-
-              opacity:
-                loading || !message.trim()
-                  ? 0.55
-                  : 1,
-
-              cursor:
-                loading || !message.trim()
-                  ? "not-allowed"
-                  : "pointer"
-            }}
+            className="chat-send"
+            onClick={() => sendMessage()}
+            disabled={!message.trim() || loading}
           >
             ➤
           </button>
 
         </div>
 
-      </div>
+      </main>
 
     </div>
   );
 }
 
 
-/* =========================================================
-   STYLES
-   ========================================================= */
+function FormatText({ text = "" }) {
+  const lines = text.split("\n");
 
-const styles = {
+  return (
+    <div>
+      {lines.map((line, i) => {
+        const value = line.trim();
 
-  page: {
-    minHeight: "100vh",
-    width: "100%",
-    background:
-      "linear-gradient(135deg, #eef7ef, #f7faf7)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    boxSizing: "border-box",
-    fontFamily:
-      "'Segoe UI', Arial, sans-serif"
-  },
+        if (!value) {
+          return <div className="chat-space" key={i} />;
+        }
 
+        // Ignore markdown table separator
+        if (/^\|?[-:\s|]+\|?$/.test(value)) {
+          return null;
+        }
 
-  chatContainer: {
-    width: "100%",
-    maxWidth: "950px",
-    height: "88vh",
-    background: "#ffffff",
-    borderRadius: "22px",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow:
-      "0 18px 45px rgba(24, 70, 35, 0.14)"
-  },
+        // Markdown table row
+        if (value.startsWith("|") && value.endsWith("|")) {
+          const cells = value
+            .split("|")
+            .filter(Boolean)
+            .map(cell => cell.trim());
 
+          return (
+            <div className="chat-table-row" key={i}>
+              {cells.map((cell, j) => (
+                <span key={j}>
+                  <BoldText text={cell} />
+                </span>
+              ))}
+            </div>
+          );
+        }
 
-  header: {
-    padding: "17px 24px",
-    background:
-      "linear-gradient(135deg, #174d2c, #2e7d45)",
-    color: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between"
-  },
+        // Bullet
+        if (value.startsWith("- ") || value.startsWith("• ")) {
+          return (
+            <div className="chat-list-line" key={i}>
+              <span>•</span>
+              <BoldText text={value.slice(2)} />
+            </div>
+          );
+        }
 
+        // Numbered step
+        const step = value.match(/^(\d+)\.\s+(.*)/);
 
-  botInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px"
-  },
+        if (step) {
+          return (
+            <div className="chat-step" key={i}>
+              <span>{step[1]}</span>
+              <BoldText text={step[2]} />
+            </div>
+          );
+        }
 
-
-  avatar: {
-    width: "46px",
-    height: "46px",
-    background:
-      "rgba(255,255,255,0.17)",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "23px"
-  },
-
-
-  botName: {
-    margin: 0,
-    fontSize: "21px",
-    fontWeight: "650"
-  },
+        return (
+          <div className="chat-line" key={i}>
+            <BoldText text={value} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 
-  subtitle: {
-    margin: "3px 0 0",
-    fontSize: "12px",
-    opacity: 0.78
-  },
-
-
-  online: {
-    display: "flex",
-    alignItems: "center",
-    gap: "7px",
-    fontSize: "13px",
-    opacity: 0.9
-  },
-
-
-  onlineDot: {
-    width: "8px",
-    height: "8px",
-    background: "#8ef0a5",
-    borderRadius: "50%"
-  },
-
-
-  messagesArea: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "25px",
-    background: "#f8faf8"
-  },
-
-
-  welcome: {
-    textAlign: "center",
-    maxWidth: "420px",
-    margin: "100px auto 0",
-    color: "#31463a"
-  },
-
-
-  welcomeIcon: {
-    fontSize: "42px",
-    marginBottom: "12px"
-  },
-
-
-  welcomeText: {
-    margin: "7px 0",
-    color: "#6b7b70",
-    fontSize: "14px",
-    lineHeight: "1.6"
-  },
-
-
-  messageRow: {
-    width: "100%",
-    display: "flex",
-    marginBottom: "17px"
-  },
-
-
-  messageBubble: {
-    maxWidth: "70%",
-    padding: "11px 15px",
-    borderRadius: "18px",
-    fontSize: "14px",
-    lineHeight: "1.55"
-  },
-
-
-  userBubble: {
-    background:
-      "linear-gradient(135deg, #2e7d45, #388e52)",
-    color: "white",
-    borderBottomRightRadius: "5px"
-  },
-
-
-  botBubble: {
-    background: "#ffffff",
-    color: "#26372d",
-    border: "1px solid #e2e9e3",
-    borderBottomLeftRadius: "5px",
-    boxShadow:
-      "0 2px 8px rgba(0,0,0,0.04)"
-  },
-
-
-  sender: {
-    fontSize: "11px",
-    fontWeight: "700",
-    marginBottom: "4px",
-    opacity: 0.72
-  },
-
-
-  messageText: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word"
-  },
-
-
-  thinking: {
-    display: "flex",
-    gap: "4px",
-    fontSize: "8px",
-    opacity: 0.55,
-    padding: "3px 0"
-  },
-
-
-  inputArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "15px 20px",
-    borderTop: "1px solid #e6ebe7",
-    background: "#ffffff"
-  },
-
-
-  input: {
-    flex: 1,
-    padding: "13px 18px",
-    borderRadius: "25px",
-    border: "1px solid #cad7cd",
-    background: "#f8faf8",
-    fontSize: "14px",
-    outline: "none",
-    boxSizing: "border-box"
-  },
-
-
-  sendButton: {
-    width: "47px",
-    height: "47px",
-    flexShrink: 0,
-    border: "none",
-    borderRadius: "50%",
-    background:
-      "linear-gradient(135deg, #246b39, #3c9858)",
-    color: "white",
-    fontSize: "19px"
-  }
-};
-
+function BoldText({ text }) {
+  return text
+    .split(/(\*\*.*?\*\*)/g)
+    .map((part, i) =>
+      part.startsWith("**") && part.endsWith("**")
+        ? <strong key={i}>{part.slice(2, -2)}</strong>
+        : part
+    );
+}
 
 export default Chat;

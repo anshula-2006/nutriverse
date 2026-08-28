@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import authFood from "./assets/images/auth-food.jpg";
 import "./styles/Auth.css";
 
 function Register() {
-
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -11,19 +11,16 @@ function Register() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
+    setMessage("");
 
     try {
-
-      // 1. Register user
       const response = await fetch(
         "http://localhost:8080/api/auth/register",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name,
             username,
@@ -39,14 +36,11 @@ function Register() {
         return;
       }
 
-      // 2. Automatically login after registration
       const loginResponse = await fetch(
         "http://localhost:8080/api/auth/login",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             username,
             password
@@ -61,7 +55,6 @@ function Register() {
         return;
       }
 
-      // 3. Save login information
       localStorage.setItem("token", loginData.token);
 
       localStorage.setItem(
@@ -74,124 +67,113 @@ function Register() {
         })
       );
 
-      // 4. Go directly to chat
-      navigate("/chat");
+      navigate("/dashboard");
 
-    } catch (error) {
+    } catch {
       setMessage("Could not connect to backend");
     }
-  };
+  }
 
   return (
     <div className="auth-page">
 
-      <div className="auth-container">
+      <div className="auth-card">
 
-        <div className="left-content">
+        <div className="auth-image">
 
-          <div className="top-logo">
-            NUTRIVERSE AI
-          </div>
+          <img
+            src={authFood}
+            alt="Healthy nutritious foods"
+          />
 
-          <div className="hero-content">
+          <div className="auth-image-text">
+
+            <span>🌿 NUTRIVERSE</span>
+
             <h1>
-              Eat better,
+              Build healthier
               <br />
-              your way.
+              habits your way.
             </h1>
 
             <p>
-              Nutrition that listens, learns,
-              and grows with you.
+              Personalized nutrition built around
+              your food choices, goals and lifestyle.
             </p>
-          </div>
 
-          <div className="corner-link">
-            <span>Already here?</span>
-
-            <Link to="/login">
-              Sign in →
-            </Link>
           </div>
 
         </div>
 
-        <div className="glass-panel">
 
-          <div className="form-content">
+        <div className="auth-form-side">
 
-            <div className="brand">
-              Nutri<span>Verse</span>
+          <div className="auth-form">
+
+            <div className="auth-brand">
+              🌿 Nutri<span>Verse</span>
             </div>
-
-            <p className="tagline">
-              YOUR AI NUTRITION COMPANION
-            </p>
 
             <h2>Create account</h2>
 
+            <p className="auth-subtitle">
+              Start your personalized nutrition journey.
+            </p>
+
+
             <form onSubmit={handleSubmit}>
 
-              <div className="form-group">
-                <label>Name</label>
+              <label>Name</label>
 
-                <input
-                  type="text"
-                  placeholder="What should we call you?"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="What should we call you?"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
 
-              <div className="form-group">
-                <label>Username</label>
 
-                <input
-                  type="text"
-                  placeholder="Choose a username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-              </div>
+              <label>Username</label>
 
-              <div className="form-group">
-                <label>Password</label>
+              <input
+                type="text"
+                placeholder="Choose a username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                required
+              />
 
-                <input
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+
+              <label>Password</label>
+
+              <input
+                type="password"
+                placeholder="Create a password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+
 
               {message && (
-                <p style={{ textAlign: "center" }}>
+                <p className="auth-error">
                   {message}
                 </p>
               )}
 
+
               <button
-                className="primary-btn"
+                className="auth-submit"
                 type="submit"
               >
-                Create Account
+                Create Account →
               </button>
 
             </form>
 
-            <div className="or-divider">
-              <span>or</span>
-            </div>
 
-            <button className="guest-btn">
-              Continue as Guest →
-            </button>
-
-            <p className="bottom-link">
+            <p className="auth-switch">
               Already have an account?{" "}
 
               <Link to="/login">

@@ -1,33 +1,26 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import authFood from "./assets/images/auth-food.jpg";
 import "./styles/Auth.css";
 
 function Login() {
-
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
-
     setMessage("");
 
     try {
-
       const response = await fetch(
         "http://localhost:8080/api/auth/login",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            username,
-            password
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
         }
       );
 
@@ -38,10 +31,8 @@ function Login() {
         return;
       }
 
-      // Save JWT
       localStorage.setItem("token", data.token);
 
-      // Save logged-in user
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -52,170 +43,97 @@ function Login() {
         })
       );
 
-      // Redirect to chatbot
-      navigate("/chat");
+      navigate("/dashboard");
 
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessage("Could not connect to backend");
     }
-  };
-
+  }
 
   return (
     <div className="auth-page">
 
-      <div className="auth-container">
+      <div className="auth-card">
 
-        {/* LEFT SIDE */}
-        <div className="left-content">
+        <div className="auth-image">
+          <img src={authFood} alt="Healthy nutritious foods" />
 
-          <div className="top-logo">
-            NUTRIVERSE AI
-          </div>
-
-          <div className="hero-content">
+          <div className="auth-image-text">
+            <span>🌿 NUTRIVERSE</span>
 
             <h1>
-              Welcome
+              Nourish better.
               <br />
-              back.
+              Feel better.
             </h1>
 
             <p>
-              Your nutrition companion is ready whenever
-              you are.
+              Personalized nutrition that understands
+              your goals and preferences.
             </p>
-
           </div>
-
-          <div className="corner-link">
-
-            <span>New here?</span>
-
-            <Link to="/register">
-              Join us →
-            </Link>
-
-          </div>
-
         </div>
 
 
-        {/* RIGHT SIDE */}
-        <div className="glass-panel">
+        <div className="auth-form-side">
 
-          <div className="form-content">
+          <div className="auth-form">
 
-            <div className="brand">
-              Nutri<span>Verse</span>
+            <div className="auth-brand">
+              🌿 Nutri<span>Verse</span>
             </div>
 
-            <p className="tagline">
-              YOUR AI NUTRITION COMPANION
-            </p>
+            <h2>Welcome back</h2>
 
-            <h2>Sign in</h2>
+            <p className="auth-subtitle">
+              Continue your nutrition journey.
+            </p>
 
 
             <form onSubmit={handleSubmit}>
 
-              <div className="form-group">
+              <label>Username</label>
 
-                <label>Username</label>
-
-                <input
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) =>
-                    setUsername(e.target.value)
-                  }
-                  required
-                />
-
-              </div>
+              <input
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                required
+              />
 
 
-              <div className="form-group">
+              <label>Password</label>
 
-                <label>Password</label>
-
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
-                  }
-                  required
-                />
-
-              </div>
-
-
-              <div
-                style={{
-                  textAlign: "right",
-                  marginBottom: "15px"
-                }}
-              >
-                <Link
-                  to="/forgot-password"
-                  style={{
-                    color: "white",
-                    fontSize: "13px",
-                    textDecoration: "none"
-                  }}
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
 
 
               {message && (
-                <p
-                  style={{
-                    textAlign: "center",
-                    marginBottom: "12px"
-                  }}
-                >
+                <p className="auth-error">
                   {message}
                 </p>
               )}
 
 
-              <button
-                className="primary-btn"
-                type="submit"
-              >
-                Sign In
+              <button className="auth-submit" type="submit">
+                Sign In →
               </button>
 
             </form>
 
 
-            <div className="or-divider">
-              <span>or</span>
-            </div>
-
-
-            <button
-              className="guest-btn"
-              type="button"
-            >
-              Continue as Guest →
-            </button>
-
-
-            <p className="bottom-link">
-
-              New here?{" "}
+            <p className="auth-switch">
+              New to NutriVerse?{" "}
 
               <Link to="/register">
-                Create account
+                Create an account
               </Link>
-
             </p>
 
           </div>

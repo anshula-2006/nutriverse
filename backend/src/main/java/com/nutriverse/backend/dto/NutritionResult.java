@@ -1,21 +1,10 @@
-package com.nutriverse.backend.model;
+package com.nutriverse.backend.dto;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+public class NutritionResult {
 
-import java.time.LocalDateTime;
-
-@Document(collection = "meal_logs")
-public class MealLog {
-
-    @Id
-    private String id;
-
-    private String userId;
-    private String mealType;
     private String foodName;
 
-    private Double quantity;
+    private Double servingSize;
     private String servingUnit;
 
     // Nutrition
@@ -39,29 +28,7 @@ public class MealLog {
     private boolean estimated;
     private Double confidence;
 
-    private LocalDateTime loggedAt;
-
-    public MealLog() {
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getMealType() {
-        return mealType;
-    }
-
-    public void setMealType(String mealType) {
-        this.mealType = mealType;
+    public NutritionResult() {
     }
 
     public String getFoodName() {
@@ -72,12 +39,12 @@ public class MealLog {
         this.foodName = foodName;
     }
 
-    public Double getQuantity() {
-        return quantity;
+    public Double getServingSize() {
+        return servingSize;
     }
 
-    public void setQuantity(Double quantity) {
-        this.quantity = quantity;
+    public void setServingSize(Double servingSize) {
+        this.servingSize = servingSize;
     }
 
     public String getServingUnit() {
@@ -206,13 +173,5 @@ public class MealLog {
 
     public void setConfidence(Double confidence) {
         this.confidence = confidence;
-    }
-
-    public LocalDateTime getLoggedAt() {
-        return loggedAt;
-    }
-
-    public void setLoggedAt(LocalDateTime loggedAt) {
-        this.loggedAt = loggedAt;
     }
 }
