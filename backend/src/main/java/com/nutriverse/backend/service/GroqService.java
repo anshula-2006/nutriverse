@@ -51,7 +51,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // CHAT
+    // MAIN CHAT
     // =========================================================
 
     public String getReply(
@@ -116,7 +116,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // BUILD MESSAGES
+    // BUILD REQUEST MESSAGES
     // =========================================================
 
     private List<Map<String, String>> buildMessages(
@@ -258,7 +258,7 @@ public class GroqService {
                             );
 
                     return Math.max(
-                            1000,
+                            1000L,
                             (long) (seconds * 1000)
                     );
 
@@ -267,7 +267,7 @@ public class GroqService {
             }
         }
 
-        return 2000;
+        return 2000L;
     }
 
     private void sleep(long milliseconds) {
@@ -321,7 +321,8 @@ public class GroqService {
                 Gender: %s
                 Activity: %s
 
-                Do not ask again for known information.
+                Use known information when personalizing responses.
+                Never ask again for information already known.
                 UNKNOWN values may be learned gradually.
                 """
                 .formatted(
@@ -343,7 +344,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // RESPONSE
+    // RESPONSE EXTRACTION
     // =========================================================
 
     private String extractReply(
@@ -391,11 +392,14 @@ public class GroqService {
 
     private String fallbackReply() {
 
-        return "Sorry, I couldn't generate a response. Please try again.";
+        return """
+                Sorry, I couldn't generate a response.
+                Please try again.
+                """.trim();
     }
 
     // =========================================================
-    // NUTRI PROMPT
+    // NUTRI SYSTEM PROMPT
     // =========================================================
 
     private String getSystemPrompt() {
@@ -415,8 +419,8 @@ public class GroqService {
                 - Never ask again for information already known.
                 - Learn missing information gradually when relevant.
                 - Never guess age, height, weight, gender or activity level.
-                - If activity is vague, such as "I run sometimes",
-                  ask approximately how many days per week.
+                - If activity information is vague, such as
+                  "I run sometimes", ask approximately how many days per week.
 
                 LOCAL FOOD AND BUDGET
                 - Prefer affordable, familiar and locally available foods.
@@ -428,8 +432,6 @@ public class GroqService {
                   avocado, quinoa, berries, protein powder or imported foods.
                 - If an ingredient may be expensive or difficult to find,
                   suggest a cheaper local alternative.
-                - Prefer practical substitutions using foods the user
-                  normally eats or can easily buy.
 
                 DIET
                 - Dietary restrictions are hard constraints.
@@ -461,6 +463,45 @@ public class GroqService {
                   necessary profile information.
                 - Never guess missing values.
 
+                EXPLAINABLE RECOMMENDATIONS
+                - Every food or meal recommendation must be explainable.
+                - Briefly explain WHY a recommendation fits the user.
+                - Base explanations only on information actually known.
+
+                Valid explanation factors include:
+                - dietary preference
+                - nutrition goal
+                - activity level
+                - budget
+                - region or local availability
+                - foods the user said they have or prefer
+                - trusted nutrition information supplied by the backend
+
+                - Do not invent explanation reasons.
+                - Do not claim an allergy match unless that allergy is known.
+                - Do not claim exact nutrition evidence unless trusted
+                  backend data supplied it.
+
+                For recommendations, prefer a short format such as:
+
+                Recommendation:
+                Moong dal chilla
+
+                Why this fits you:
+                ✓ Matches your dietary preference
+                ✓ Supports your nutrition goal
+                ✓ Uses affordable familiar ingredients
+
+                Do not make the explanation long unless the user asks why.
+
+                If the user asks:
+                "Why did you recommend this?"
+                "Why did you recommend oats?"
+                or similar questions,
+
+                explain using the known profile and recent conversation.
+                Do not create new reasons that were not previously known.
+
                 RECIPES
                 - Respect diet, allergies, budget and familiar foods.
                 - Keep recipes simple unless more detail is requested.
@@ -475,9 +516,12 @@ public class GroqService {
                   appropriate healthcare professional.
 
                 CORE RULE
-                Help first, learn gradually, stay practical,
-                respect safety constraints and never invent
-                precise nutrition facts.
+                Help first.
+                Learn gradually.
+                Stay practical.
+                Explain recommendations.
+                Respect safety constraints.
+                Never invent precise nutrition facts.
                 """;
     }
 }
