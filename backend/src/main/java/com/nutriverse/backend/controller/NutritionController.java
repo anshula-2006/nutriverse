@@ -19,33 +19,33 @@ public class NutritionController {
 
     public NutritionController(
             NutritionLookupService lookupService,
-            NutritionMealService mealService
-    ) {
+            NutritionMealService mealService) {
+
         this.lookupService = lookupService;
         this.mealService = mealService;
     }
 
-    // Search by food/product name
     @GetMapping("/search")
     public List<NutritionResult> search(
-            @RequestParam String query
-    ) {
+            @RequestParam String query) {
+
         return lookupService.search(query);
     }
 
-    // Search exact packaged product by barcode
     @GetMapping("/barcode/{barcode}")
     public NutritionResult barcode(
-            @PathVariable String barcode
-    ) {
+            @PathVariable String barcode) {
+
         return lookupService.findByBarcode(barcode);
     }
 
-    // Log selected food with actual quantity
     @PostMapping("/log-meal")
     public MealLog logMeal(
-            @RequestBody NutritionMealRequest request
-    ) {
-        return mealService.logMeal(request);
+            @RequestBody NutritionMealRequest request) {
+
+        return mealService.logMeal(
+                request.getUserId(),
+                request
+        );
     }
 }

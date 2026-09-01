@@ -22,11 +22,10 @@ public class ChatController {
     public ChatResponse chat(
             @Valid @RequestBody ChatRequest request) {
 
-        String reply =
-                groqService.getReply(
-                        request.getConversationId(),
-                        request.getMessage()
-                );
+        String reply = groqService.getReply(
+                request.getConversationId(),
+                request.getMessage()
+        );
 
         return new ChatResponse(reply);
     }

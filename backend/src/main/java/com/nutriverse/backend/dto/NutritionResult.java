@@ -4,11 +4,28 @@ public class NutritionResult {
 
     private String foodName;
 
+    // Reference serving used by the nutrition provider
     private Double servingSize;
     private String servingUnit;
 
-    // Nutrition
+
+    // =========================================================
+    // NUTRITION
+    //
+    // calories        -> kcal
+    // protein         -> g
+    // carbs           -> g
+    // fat             -> g
+    // fiber           -> g
+    //
+    // iron            -> mg
+    // calcium         -> mg
+    // sodium          -> mg
+    // potassium       -> mg
+    // =========================================================
+
     private Double calories;
+
     private Double protein;
     private Double carbs;
     private Double fat;
@@ -19,17 +36,24 @@ public class NutritionResult {
     private Double sodium;
     private Double potassium;
 
-    // Verification / source
+
+    // =========================================================
+    // SOURCE / PROVENANCE
+    // =========================================================
+
     private String sourceType;
     private String source;
     private String sourceId;
 
     private boolean verified;
     private boolean estimated;
+
     private Double confidence;
+
 
     public NutritionResult() {
     }
+
 
     public String getFoodName() {
         return foodName;
@@ -39,6 +63,7 @@ public class NutritionResult {
         this.foodName = foodName;
     }
 
+
     public Double getServingSize() {
         return servingSize;
     }
@@ -46,6 +71,7 @@ public class NutritionResult {
     public void setServingSize(Double servingSize) {
         this.servingSize = servingSize;
     }
+
 
     public String getServingUnit() {
         return servingUnit;
@@ -55,6 +81,7 @@ public class NutritionResult {
         this.servingUnit = servingUnit;
     }
 
+
     public Double getCalories() {
         return calories;
     }
@@ -62,6 +89,7 @@ public class NutritionResult {
     public void setCalories(Double calories) {
         this.calories = calories;
     }
+
 
     public Double getProtein() {
         return protein;
@@ -71,6 +99,7 @@ public class NutritionResult {
         this.protein = protein;
     }
 
+
     public Double getCarbs() {
         return carbs;
     }
@@ -78,6 +107,7 @@ public class NutritionResult {
     public void setCarbs(Double carbs) {
         this.carbs = carbs;
     }
+
 
     public Double getFat() {
         return fat;
@@ -87,6 +117,7 @@ public class NutritionResult {
         this.fat = fat;
     }
 
+
     public Double getFiber() {
         return fiber;
     }
@@ -94,6 +125,7 @@ public class NutritionResult {
     public void setFiber(Double fiber) {
         this.fiber = fiber;
     }
+
 
     public Double getIron() {
         return iron;
@@ -103,6 +135,7 @@ public class NutritionResult {
         this.iron = iron;
     }
 
+
     public Double getCalcium() {
         return calcium;
     }
@@ -110,6 +143,7 @@ public class NutritionResult {
     public void setCalcium(Double calcium) {
         this.calcium = calcium;
     }
+
 
     public Double getSodium() {
         return sodium;
@@ -119,6 +153,7 @@ public class NutritionResult {
         this.sodium = sodium;
     }
 
+
     public Double getPotassium() {
         return potassium;
     }
@@ -126,6 +161,7 @@ public class NutritionResult {
     public void setPotassium(Double potassium) {
         this.potassium = potassium;
     }
+
 
     public String getSourceType() {
         return sourceType;
@@ -135,6 +171,7 @@ public class NutritionResult {
         this.sourceType = sourceType;
     }
 
+
     public String getSource() {
         return source;
     }
@@ -142,6 +179,7 @@ public class NutritionResult {
     public void setSource(String source) {
         this.source = source;
     }
+
 
     public String getSourceId() {
         return sourceId;
@@ -151,6 +189,7 @@ public class NutritionResult {
         this.sourceId = sourceId;
     }
 
+
     public boolean isVerified() {
         return verified;
     }
@@ -159,6 +198,7 @@ public class NutritionResult {
         this.verified = verified;
     }
 
+
     public boolean isEstimated() {
         return estimated;
     }
@@ -166,6 +206,7 @@ public class NutritionResult {
     public void setEstimated(boolean estimated) {
         this.estimated = estimated;
     }
+
 
     public Double getConfidence() {
         return confidence;

@@ -4,10 +4,8 @@ public class NutritionMealRequest {
 
     private String userId;
     private String mealType;
-
     private String source;
     private String sourceId;
-
     private Double quantityGrams;
 
     public NutritionMealRequest() {

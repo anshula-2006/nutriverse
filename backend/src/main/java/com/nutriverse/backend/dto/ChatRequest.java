@@ -3,16 +3,17 @@ package com.nutriverse.backend.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public class ChatRequest {
+
     @NotBlank
     private String message;
 
     @NotBlank
     private String conversationId;
 
-    public String getMessage()
-    {
+    public String getMessage() {
         return message;
     }
+
     public void setMessage(String message) {
         this.message = message;
     }

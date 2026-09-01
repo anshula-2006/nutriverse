@@ -2,6 +2,7 @@ package com.nutriverse.backend.service;
 
 import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -10,17 +11,13 @@ public class DailyTargetService {
     private final NutritionProfileRepository profileRepository;
 
     public DailyTargetService(
-            NutritionProfileRepository profileRepository
-    ) {
+            NutritionProfileRepository profileRepository) {
+
         this.profileRepository = profileRepository;
     }
 
-
-    // =========================================================
-    // CALCULATE AND SAVE DAILY TARGETS
-    // =========================================================
-
-    public NutritionProfile calculateTargets(String userId) {
+    public NutritionProfile calculateTargets(
+            String userId) {
 
         NutritionProfile profile =
                 profileRepository
@@ -31,119 +28,33 @@ public class DailyTargetService {
             return null;
         }
 
-        // We need these values before calculating targets
-        if (
-                profile.getAge() == null ||
-                        profile.getHeight() == null ||
-                        profile.getWeight() == null ||
-                        profile.getGender() == null ||
-                        profile.getActivityLevel() == null
-        ) {
+        if (!hasRequiredData(profile)) {
             return profile;
         }
 
+        Double bmr =
+                calculateBmr(profile);
 
-        // -----------------------------------------------------
-        // 1. CALCULATE BMR
-        // Mifflin-St Jeor Equation
-        // -----------------------------------------------------
-
-        double bmr;
-
-        if (
-                profile.getGender()
-                        .equalsIgnoreCase("MALE")
-        ) {
-
-            bmr =
-                    (10 * profile.getWeight()) +
-                            (6.25 * profile.getHeight()) -
-                            (5 * profile.getAge()) +
-                            5;
-
-        } else {
-
-            bmr =
-                    (10 * profile.getWeight()) +
-                            (6.25 * profile.getHeight()) -
-                            (5 * profile.getAge()) -
-                            161;
+        if (bmr == null) {
+            clearTargets(profile);
+            return profileRepository.save(profile);
         }
 
-
-        // -----------------------------------------------------
-        // 2. ACTIVITY MULTIPLIER
-        // -----------------------------------------------------
-
-        double activityMultiplier =
-                getActivityMultiplier(
+        double maintenanceCalories =
+                bmr * getActivityMultiplier(
                         profile.getActivityLevel()
                 );
 
-
-        double maintenanceCalories =
-                bmr * activityMultiplier;
-
-
-        // -----------------------------------------------------
-        // 3. MODIFY BASED ON USER GOAL
-        // -----------------------------------------------------
-
         double calorieTarget =
-                maintenanceCalories;
+                applyGoalAdjustment(
+                        maintenanceCalories,
+                        profile.getGoal()
+                );
 
-        if (profile.getGoal() != null) {
-
-            switch (
-                    profile.getGoal()
-                            .toUpperCase()
-            ) {
-
-                case "WEIGHT_LOSS":
-                    calorieTarget -= 500;
-                    break;
-
-                case "WEIGHT_GAIN":
-                    calorieTarget += 300;
-                    break;
-
-                case "MAINTENANCE":
-                case "HEALTHIER":
-                case "FITNESS":
-                default:
-                    break;
-            }
-        }
-
-
-        // -----------------------------------------------------
-        // 4. PROTEIN TARGET
-        // -----------------------------------------------------
-
-        double proteinPerKg = 1.2;
-
-        if (profile.getGoal() != null) {
-
-            switch (
-                    profile.getGoal()
-                            .toUpperCase()
-            ) {
-
-                case "WEIGHT_LOSS":
-                    proteinPerKg = 1.2;
-                    break;
-
-                case "WEIGHT_GAIN":
-                case "FITNESS":
-                    proteinPerKg = 1.5;
-                    break;
-
-                default:
-                    proteinPerKg = 1.0;
-                    break;
-            }
-        }
-
+        double proteinPerKg =
+                getProteinPerKg(
+                        profile.getGoal()
+                );
 
         int proteinTarget =
                 (int) Math.round(
@@ -151,26 +62,12 @@ public class DailyTargetService {
                                 * proteinPerKg
                 );
 
-
-        // -----------------------------------------------------
-        // 5. WATER TARGET
-        // 35 ml per kg body weight
-        // -----------------------------------------------------
-
         double waterTarget =
-                profile.getWeight()
-                        * 0.035;
-
-
-        waterTarget =
                 Math.round(
-                        waterTarget * 10.0
+                        profile.getWeight()
+                                * 0.035
+                                * 10.0
                 ) / 10.0;
-
-
-        // -----------------------------------------------------
-        // 6. SAVE TARGETS TO PROFILE
-        // -----------------------------------------------------
 
         profile.setDailyCalorieTarget(
                 (int) Math.round(
@@ -186,22 +83,48 @@ public class DailyTargetService {
                 waterTarget
         );
 
-
         return profileRepository.save(profile);
     }
 
 
-    // =========================================================
-    // ACTIVITY LEVEL
-    // =========================================================
+    private boolean hasRequiredData(
+            NutritionProfile profile) {
+
+        return profile.getAge() != null
+                && profile.getHeight() != null
+                && profile.getWeight() != null
+                && profile.getGender() != null
+                && profile.getActivityLevel() != null;
+    }
+
+
+    private Double calculateBmr(
+            NutritionProfile profile) {
+
+        double base =
+                (10 * profile.getWeight())
+                        + (6.25 * profile.getHeight())
+                        - (5 * profile.getAge());
+
+        return switch (
+                profile.getGender()
+                        .toUpperCase()
+                ) {
+
+            case "MALE" ->
+                    base + 5;
+
+            case "FEMALE" ->
+                    base - 161;
+
+            default ->
+                    null;
+        };
+    }
+
 
     private double getActivityMultiplier(
-            String activityLevel
-    ) {
-
-        if (activityLevel == null) {
-            return 1.2;
-        }
+            String activityLevel) {
 
         return switch (
                 activityLevel.toUpperCase()
@@ -216,11 +139,76 @@ public class DailyTargetService {
             case "VERY_ACTIVE" ->
                     1.725;
 
+            case "EXTRA_ACTIVE" ->
+                    1.9;
+
             case "SEDENTARY" ->
                     1.2;
 
             default ->
                     1.2;
         };
+    }
+
+
+    private double applyGoalAdjustment(
+            double maintenanceCalories,
+            String goal) {
+
+        if (goal == null) {
+            return maintenanceCalories;
+        }
+
+        return switch (
+                goal.toUpperCase()
+                ) {
+
+            case "WEIGHT_LOSS" ->
+                    maintenanceCalories - 500;
+
+            case "WEIGHT_GAIN" ->
+                    maintenanceCalories + 300;
+
+            case "MAINTENANCE",
+                 "HEALTHY_EATING",
+                 "FITNESS" ->
+                    maintenanceCalories;
+
+            default ->
+                    maintenanceCalories;
+        };
+    }
+
+
+    private double getProteinPerKg(
+            String goal) {
+
+        if (goal == null) {
+            return 1.0;
+        }
+
+        return switch (
+                goal.toUpperCase()
+                ) {
+
+            case "WEIGHT_LOSS" ->
+                    1.2;
+
+            case "WEIGHT_GAIN",
+                 "FITNESS" ->
+                    1.5;
+
+            default ->
+                    1.0;
+        };
+    }
+
+
+    private void clearTargets(
+            NutritionProfile profile) {
+
+        profile.setDailyCalorieTarget(null);
+        profile.setDailyProteinTarget(null);
+        profile.setDailyWaterTarget(null);
     }
 }

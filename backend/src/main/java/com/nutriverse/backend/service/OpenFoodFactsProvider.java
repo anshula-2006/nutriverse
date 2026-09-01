@@ -1,6 +1,10 @@
 package com.nutriverse.backend.service;
 
 import com.nutriverse.backend.dto.NutritionResult;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -10,67 +14,93 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class OpenFoodFactsProvider implements NutritionProvider {
+public class OpenFoodFactsProvider
+        implements NutritionProvider {
+
+    private static final Logger logger =
+            LoggerFactory.getLogger(
+                    OpenFoodFactsProvider.class
+            );
 
     private final RestClient productClient;
     private final RestClient searchClient;
 
+
     public OpenFoodFactsProvider() {
 
-        productClient = RestClient.builder()
-                .baseUrl("https://world.openfoodfacts.org")
-                .defaultHeader(
-                        "User-Agent",
-                        "NutriVerse/1.0 Academic Project"
-                )
-                .build();
+        this.productClient =
+                RestClient.builder()
+                        .baseUrl(
+                                "https://world.openfoodfacts.org"
+                        )
+                        .defaultHeader(
+                                "User-Agent",
+                                "NutriVerse/1.0 Academic Project"
+                        )
+                        .build();
 
-        searchClient = RestClient.builder()
-                .baseUrl("https://search.openfoodfacts.org")
-                .defaultHeader(
-                        "User-Agent",
-                        "NutriVerse/1.0 Academic Project"
-                )
-                .build();
+        this.searchClient =
+                RestClient.builder()
+                        .baseUrl(
+                                "https://search.openfoodfacts.org"
+                        )
+                        .defaultHeader(
+                                "User-Agent",
+                                "NutriVerse/1.0 Academic Project"
+                        )
+                        .build();
     }
 
 
     // =========================================================
-    // SEARCH BY NAME
+    // SEARCH
     // =========================================================
 
     @Override
-    public List<NutritionResult> search(String query) {
+    public List<NutritionResult> search(
+            String query) {
 
-        List<NutritionResult> results = new ArrayList<>();
+        List<NutritionResult> results =
+                new ArrayList<>();
 
-        if (query == null || query.isBlank()) {
+        if (query == null ||
+                query.isBlank()) {
+
             return results;
         }
 
         try {
 
-            Map response = searchClient
-                    .post()
-                    .uri("/search")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of(
-                            "q", query,
-                            "page_size", 10,
-                            "page", 1
-                    ))
-                    .retrieve()
-                    .body(Map.class);
+            Map<?, ?> response =
+                    searchClient
+                            .post()
+                            .uri("/search")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .body(
+                                    Map.of(
+                                            "q", query.trim(),
+                                            "page_size", 10,
+                                            "page", 1
+                                    )
+                            )
+                            .retrieve()
+                            .body(Map.class);
+
 
             if (response == null) {
                 return results;
             }
 
-            Object hitsObject = response.get("hits");
+
+            Object hitsObject =
+                    response.get("hits");
 
             if (!(hitsObject instanceof List<?> hits)) {
                 return results;
             }
+
 
             for (Object object : hits) {
 
@@ -78,13 +108,18 @@ public class OpenFoodFactsProvider implements NutritionProvider {
                     continue;
                 }
 
+
                 Map<?, ?> product = hit;
 
-                Object sourceObject = hit.get("_source");
+                Object sourceObject =
+                        hit.get("_source");
 
-                if (sourceObject instanceof Map<?, ?> source) {
+                if (sourceObject
+                        instanceof Map<?, ?> source) {
+
                     product = source;
                 }
+
 
                 NutritionResult result =
                         convertProduct(product);
@@ -94,79 +129,87 @@ public class OpenFoodFactsProvider implements NutritionProvider {
                 }
             }
 
+
         } catch (Exception e) {
 
-            System.out.println(
-                    "Open Food Facts search failed: "
-                            + e.getMessage()
+            logger.warn(
+                    "Open Food Facts search failed: {}",
+                    e.getMessage()
             );
         }
+
 
         return results;
     }
 
 
     // =========================================================
-    // FIND EXACT PRODUCT BY BARCODE
+    // EXACT LOOKUP
     // =========================================================
 
     @Override
-    public NutritionResult findByBarcode(String barcode) {
+    public NutritionResult findByBarcode(
+            String barcode) {
 
         return fetchProduct(barcode);
     }
 
 
-    // =========================================================
-    // FIND EXACT PRODUCT BY SOURCE ID
-    // =========================================================
-
     @Override
-    public NutritionResult findBySourceId(String sourceId) {
+    public NutritionResult findBySourceId(
+            String sourceId) {
 
         return fetchProduct(sourceId);
     }
 
 
-    // =========================================================
-    // FETCH PRODUCT
-    // =========================================================
+    private NutritionResult fetchProduct(
+            String code) {
 
-    private NutritionResult fetchProduct(String code) {
+        if (code == null ||
+                code.isBlank()) {
 
-        if (code == null || code.isBlank()) {
             return null;
         }
 
+
         try {
 
-            Map response = productClient
-                    .get()
-                    .uri(
-                            "/api/v2/product/{code}.json",
-                            code
-                    )
-                    .retrieve()
-                    .body(Map.class);
+            Map<?, ?> response =
+                    productClient
+                            .get()
+                            .uri(
+                                    "/api/v2/product/{code}.json",
+                                    code.trim()
+                            )
+                            .retrieve()
+                            .body(Map.class);
+
 
             if (response == null) {
                 return null;
             }
 
+
             Object productObject =
                     response.get("product");
 
-            if (!(productObject instanceof Map<?, ?> product)) {
+            if (!(productObject
+                    instanceof Map<?, ?> product)) {
+
                 return null;
             }
 
+
             return convertProduct(product);
+
 
         } catch (Exception e) {
 
-            System.out.println(
-                    "Open Food Facts product lookup failed: "
-                            + e.getMessage()
+            logger.warn(
+                    "Open Food Facts lookup failed for {}: {}",
+                    code,
+                    e.getMessage()
             );
 
             return null;
@@ -175,36 +218,49 @@ public class OpenFoodFactsProvider implements NutritionProvider {
 
 
     // =========================================================
-    // CONVERT PRODUCT → NUTRITION RESULT
+    // PRODUCT → NUTRITION RESULT
     // =========================================================
 
     private NutritionResult convertProduct(
-            Map<?, ?> product
-    ) {
+            Map<?, ?> product) {
 
-        String name = text(
-                product.get("product_name")
-        );
+        String name =
+                text(
+                        product.get(
+                                "product_name"
+                        )
+                );
 
-        if (name == null || name.isBlank()) {
+
+        if (name == null ||
+                name.isBlank()) {
+
             return null;
         }
+
 
         Object nutrientsObject =
                 product.get("nutriments");
 
-        if (!(nutrientsObject instanceof Map<?, ?> nutrients)) {
+        if (!(nutrientsObject
+                instanceof Map<?, ?> nutrients)) {
+
             return null;
         }
+
 
         NutritionResult result =
                 new NutritionResult();
 
 
         String brand =
-                text(product.get("brands"));
+                text(
+                        product.get("brands")
+                );
 
-        if (brand != null && !brand.isBlank()) {
+
+        if (brand != null &&
+                !brand.isBlank()) {
 
             result.setFoodName(
                     brand + " " + name
@@ -216,47 +272,110 @@ public class OpenFoodFactsProvider implements NutritionProvider {
         }
 
 
+        // =====================================================
+        // MACROS
+        // OFF _100g values are normalized.
+        // Weight-based macronutrients are in grams.
+        // =====================================================
+
         result.setCalories(
-                number(nutrients.get("energy-kcal_100g"))
+                number(
+                        nutrients.get(
+                                "energy-kcal_100g"
+                        )
+                )
         );
 
         result.setProtein(
-                number(nutrients.get("proteins_100g"))
+                number(
+                        nutrients.get(
+                                "proteins_100g"
+                        )
+                )
         );
 
         result.setCarbs(
-                number(nutrients.get("carbohydrates_100g"))
+                number(
+                        nutrients.get(
+                                "carbohydrates_100g"
+                        )
+                )
         );
 
         result.setFat(
-                number(nutrients.get("fat_100g"))
+                number(
+                        nutrients.get(
+                                "fat_100g"
+                        )
+                )
         );
 
         result.setFiber(
-                number(nutrients.get("fiber_100g"))
+                number(
+                        nutrients.get(
+                                "fiber_100g"
+                        )
+                )
         );
 
+
+        // =====================================================
+        // MICRONUTRIENTS
+        //
+        // OFF _100g weight values are normalized to grams.
+        // NutriVerse stores these four minerals in milligrams.
+        // =====================================================
+
         result.setIron(
-                number(nutrients.get("iron_100g"))
+                gramsToMilligrams(
+                        number(
+                                nutrients.get(
+                                        "iron_100g"
+                                )
+                        )
+                )
         );
 
         result.setCalcium(
-                number(nutrients.get("calcium_100g"))
+                gramsToMilligrams(
+                        number(
+                                nutrients.get(
+                                        "calcium_100g"
+                                )
+                        )
+                )
         );
 
         result.setSodium(
-                number(nutrients.get("sodium_100g"))
+                gramsToMilligrams(
+                        number(
+                                nutrients.get(
+                                        "sodium_100g"
+                                )
+                        )
+                )
         );
 
         result.setPotassium(
-                number(nutrients.get("potassium_100g"))
+                gramsToMilligrams(
+                        number(
+                                nutrients.get(
+                                        "potassium_100g"
+                                )
+                        )
+                )
         );
 
 
-        // Values currently represent per 100 grams
+        // All values above represent nutrition per 100 g.
+
         result.setServingSize(100.0);
         result.setServingUnit("g");
 
+
+        // =====================================================
+        // PROVENANCE
+        // =====================================================
 
         result.setSourceType(
                 "PRODUCT_DATABASE"
@@ -267,11 +386,18 @@ public class OpenFoodFactsProvider implements NutritionProvider {
         );
 
         result.setSourceId(
-                text(product.get("code"))
+                text(
+                        product.get("code")
+                )
         );
+
+
+        // OFF is community-maintained,
+        // therefore we do not mark its data as authoritative.
 
         result.setVerified(false);
         result.setEstimated(false);
+
 
         return result;
     }
@@ -281,7 +407,21 @@ public class OpenFoodFactsProvider implements NutritionProvider {
     // HELPERS
     // =========================================================
 
-    private String text(Object value) {
+    private Double gramsToMilligrams(
+            Double grams) {
+
+        if (grams == null) {
+            return null;
+        }
+
+        return Math.round(
+                grams * 1000.0 * 100.0
+        ) / 100.0;
+    }
+
+
+    private String text(
+            Object value) {
 
         return value == null
                 ? null
@@ -289,22 +429,29 @@ public class OpenFoodFactsProvider implements NutritionProvider {
     }
 
 
-    private Double number(Object value) {
+    private Double number(
+            Object value) {
 
         if (value instanceof Number number) {
+
             return number.doubleValue();
         }
 
+
         if (value == null) {
+
             return null;
         }
 
+
         try {
+
             return Double.parseDouble(
                     value.toString()
             );
 
         } catch (NumberFormatException e) {
+
             return null;
         }
     }
@@ -312,6 +459,7 @@ public class OpenFoodFactsProvider implements NutritionProvider {
 
     @Override
     public String getProviderName() {
+
         return "Open Food Facts";
     }
 }

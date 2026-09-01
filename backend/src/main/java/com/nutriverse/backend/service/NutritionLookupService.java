@@ -1,6 +1,8 @@
 package com.nutriverse.backend.service;
 
 import com.nutriverse.backend.dto.NutritionResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -9,12 +11,20 @@ import java.util.List;
 @Service
 public class NutritionLookupService {
 
-    private final List<NutritionProvider> providers;
+    private static final Logger logger =
+            LoggerFactory.getLogger(
+                    NutritionLookupService.class
+            );
+
+    private final UsdaFoodDataProvider usdaProvider;
+    private final OpenFoodFactsProvider openFoodFactsProvider;
 
     public NutritionLookupService(
-            List<NutritionProvider> providers
+            UsdaFoodDataProvider usdaProvider,
+            OpenFoodFactsProvider openFoodFactsProvider
     ) {
-        this.providers = providers;
+        this.usdaProvider = usdaProvider;
+        this.openFoodFactsProvider = openFoodFactsProvider;
     }
 
 
@@ -31,28 +41,17 @@ public class NutritionLookupService {
             return results;
         }
 
-        for (NutritionProvider provider : providers) {
+        List<NutritionResult> found =
+                searchProvider(usdaProvider, query);
 
-            try {
-
-                List<NutritionResult> found =
-                        provider.search(query);
-
-                if (found != null) {
-                    results.addAll(found);
-                }
-
-            } catch (Exception e) {
-
-                System.out.println(
-                        provider.getProviderName()
-                                + " search failed: "
-                                + e.getMessage()
-                );
-            }
+        if (!found.isEmpty()) {
+            return found;
         }
 
-        return results;
+        return searchProvider(
+                openFoodFactsProvider,
+                query
+        );
     }
 
 
@@ -68,28 +67,17 @@ public class NutritionLookupService {
             return null;
         }
 
-        for (NutritionProvider provider : providers) {
+        try {
+            return openFoodFactsProvider
+                    .findByBarcode(barcode);
 
-            try {
-
-                NutritionResult result =
-                        provider.findByBarcode(barcode);
-
-                if (result != null) {
-                    return result;
-                }
-
-            } catch (Exception e) {
-
-                System.out.println(
-                        provider.getProviderName()
-                                + " barcode lookup failed: "
-                                + e.getMessage()
-                );
-            }
+        } catch (Exception e) {
+            logger.warn(
+                    "Open Food Facts barcode lookup failed ({})",
+                    e.getClass().getSimpleName()
+            );
+            return null;
         }
-
-        return null;
     }
 
 
@@ -110,27 +98,67 @@ public class NutritionLookupService {
             return null;
         }
 
-        for (NutritionProvider provider : providers) {
+        NutritionProvider provider =
+                providerFor(source.trim());
 
-            if (!provider
-                    .getProviderName()
-                    .equalsIgnoreCase(source)) {
-                continue;
-            }
+        if (provider == null) {
+            return null;
+        }
 
-            try {
+        try {
+            return provider.findBySourceId(sourceId);
 
-                return provider
-                        .findBySourceId(sourceId);
+        } catch (Exception e) {
+            logger.warn(
+                    "{} source lookup failed ({})",
+                    provider.getProviderName(),
+                    e.getClass().getSimpleName()
+            );
+            return null;
+        }
+    }
 
-            } catch (Exception e) {
 
-                System.out.println(
-                        provider.getProviderName()
-                                + " source lookup failed: "
-                                + e.getMessage()
-                );
-            }
+    private List<NutritionResult> searchProvider(
+            NutritionProvider provider,
+            String query) {
+
+        try {
+            List<NutritionResult> found =
+                    provider.search(query);
+
+            return found == null
+                    ? new ArrayList<>()
+                    : found;
+
+        } catch (Exception e) {
+            logger.warn(
+                    "{} search failed ({})",
+                    provider.getProviderName(),
+                    e.getClass().getSimpleName()
+            );
+            return new ArrayList<>();
+        }
+    }
+
+
+    private NutritionProvider providerFor(
+            String source) {
+
+        if (usdaProvider
+                .getProviderName()
+                .equalsIgnoreCase(source) ||
+                "USDA".equalsIgnoreCase(source)) {
+
+            return usdaProvider;
+        }
+
+        if (openFoodFactsProvider
+                .getProviderName()
+                .equalsIgnoreCase(source) ||
+                "OFF".equalsIgnoreCase(source)) {
+
+            return openFoodFactsProvider;
         }
 
         return null;

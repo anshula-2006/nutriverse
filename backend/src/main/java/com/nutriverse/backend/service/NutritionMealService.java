@@ -17,16 +17,25 @@ public class NutritionMealService {
 
     public NutritionMealService(
             NutritionLookupService nutritionLookupService,
-            MealLogRepository mealLogRepository
-    ) {
+            MealLogRepository mealLogRepository) {
+
         this.nutritionLookupService = nutritionLookupService;
         this.mealLogRepository = mealLogRepository;
     }
 
-    public MealLog logMeal(NutritionMealRequest request) {
+    public MealLog logMeal(
+            String userId,
+            NutritionMealRequest request) {
 
-        if (request.getQuantityGrams() == null ||
-                request.getQuantityGrams() <= 0) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Authenticated user is required"
+            );
+        }
+
+        if (request.getQuantityGrams() == null
+                || request.getQuantityGrams() <= 0) {
+
             throw new IllegalArgumentException(
                     "Quantity must be greater than 0"
             );
@@ -54,7 +63,7 @@ public class NutritionMealService {
 
         MealLog meal = new MealLog();
 
-        meal.setUserId(request.getUserId());
+        meal.setUserId(userId);
         meal.setMealType(request.getMealType());
 
         meal.setFoodName(food.getFoodName());
@@ -88,8 +97,8 @@ public class NutritionMealService {
 
     private Double scale(
             Double value,
-            double factor
-    ) {
+            double factor) {
+
         if (value == null) {
             return null;
         }

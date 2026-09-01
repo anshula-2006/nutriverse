@@ -9,17 +9,22 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {
+
     private final DashboardService dashboardService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(
+            DashboardService dashboardService) {
+
         this.dashboardService = dashboardService;
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<DashboardResponse> getDashboard(
-            @PathVariable String userId
-    ) {
-        DashboardResponse dashboard = dashboardService.getDashboard(userId);
+            @PathVariable String userId) {
+
+        DashboardResponse dashboard =
+                dashboardService.getDashboard(userId);
+
         return ResponseEntity.ok(dashboard);
     }
 }

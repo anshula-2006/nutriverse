@@ -3,8 +3,13 @@ package com.nutriverse.backend.service;
 import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
@@ -13,6 +18,12 @@ import java.util.Map;
 
 @Service
 public class GroqService {
+
+    private static final Logger logger =
+            LoggerFactory.getLogger(GroqService.class);
+
+    private static final int HISTORY_LIMIT = 6;
+    private static final int MAX_COMPLETION_TOKENS = 350;
 
     private final ChatMemory chatMemory;
     private final ProfileExtractionService profileExtractionService;
@@ -28,7 +39,6 @@ public class GroqService {
     @Value("${groq.model}")
     private String model;
 
-
     public GroqService(
             ChatMemory chatMemory,
             ProfileExtractionService profileExtractionService,
@@ -40,133 +50,42 @@ public class GroqService {
         this.restClient = RestClient.builder().build();
     }
 
-
     // =========================================================
-    // MAIN CHAT METHOD
+    // CHAT
     // =========================================================
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-public String getReply(
+    public String getReply(
             String conversationId,
             String userMessage
     ) {
 
-        /*
-         * Current MVP:
-         *
-         * conversationId = logged-in user's id
-         *
-         * So for now we can use it as userId too.
-         */
+        if (userMessage == null || userMessage.isBlank()) {
+            return "Tell me what you'd like help with.";
+        }
+
         String userId = conversationId;
 
-
         try {
-
-            // -------------------------------------------------
-            // 1. Extract and save profile information
-            // -------------------------------------------------
 
             profileExtractionService.processUserMessage(
                     userId,
                     userMessage
             );
 
-
-            // -------------------------------------------------
-            // 2. Build messages for Groq
-            // -------------------------------------------------
-
             List<Map<String, String>> messages =
-                    new ArrayList<>();
-
-
-            // Main Nutri behavior
-            messages.add(
-                    Map.of(
-                            "role", "system",
-                            "content", getSystemPrompt()
-                    )
-            );
-
-
-            // Current MongoDB profile
-            messages.add(
-                    Map.of(
-                            "role", "system",
-                            "content",
-                            buildProfileContext(userId)
-                    )
-            );
-
-
-            // Previous conversation history
-            messages.addAll(
-                    chatMemory.getHistory(
-                            conversationId
-                    )
-            );
-
-
-            // Current user message
-            messages.add(
-                    Map.of(
-                            "role", "user",
-                            "content", userMessage
-                    )
-            );
-
-
-            // -------------------------------------------------
-            // 3. Groq request
-            // -------------------------------------------------
-
-            Map<String, Object> requestBody =
-                    Map.of(
-                            "model", model,
-                            "messages", messages,
-                            "temperature", 0.5
+                    buildMessages(
+                            userId,
+                            conversationId,
+                            userMessage
                     );
 
-
-            Map response =
-                    restClient
-                            .post()
-                            .uri(apiUrl)
-                            .header(
-                                    "Authorization",
-                                    "Bearer " + apiKey
-                            )
-                            .header(
-                                    "Content-Type",
-                                    "application/json"
-                            )
-                            .body(requestBody)
-                            .retrieve()
-                            .body(Map.class);
-
-
-            // -------------------------------------------------
-            // 4. Extract Nutri reply
-            // -------------------------------------------------
-
             String reply =
-                    extractReply(response);
-
-
-            // -------------------------------------------------
-            // 5. Detect whether Nutri asked a profile question
-            // -------------------------------------------------
+                    callGroqWithRetry(messages);
 
             profileExtractionService.processAssistantReply(
                     userId,
                     reply
             );
-
-
-            // -------------------------------------------------
-            // 6. Save chat history
-            // -------------------------------------------------
 
             chatMemory.addMessage(
                     conversationId,
@@ -180,24 +99,196 @@ public String getReply(
                     reply
             );
 
-
             return reply;
-
 
         } catch (Exception e) {
 
-            System.out.println(
-                    "GroqService error: "
-                            + e.getMessage()
+            logger.error(
+                    "Groq request failed: {}",
+                    e.getMessage()
             );
 
-            return "Sorry, I'm having trouble responding right now. Please try again.";
+            return """
+                    Nutri is having trouble responding right now.
+                    Please try again in a moment.
+                    """.trim();
         }
     }
 
+    // =========================================================
+    // BUILD MESSAGES
+    // =========================================================
+
+    private List<Map<String, String>> buildMessages(
+            String userId,
+            String conversationId,
+            String userMessage
+    ) {
+
+        List<Map<String, String>> messages =
+                new ArrayList<>();
+
+        messages.add(
+                Map.of(
+                        "role", "system",
+                        "content", getSystemPrompt()
+                )
+        );
+
+        messages.add(
+                Map.of(
+                        "role", "system",
+                        "content", buildProfileContext(userId)
+                )
+        );
+
+        List<Map<String, String>> history =
+                chatMemory.getHistory(conversationId);
+
+        if (history.size() > HISTORY_LIMIT) {
+
+            history =
+                    history.subList(
+                            history.size() - HISTORY_LIMIT,
+                            history.size()
+                    );
+        }
+
+        messages.addAll(history);
+
+        messages.add(
+                Map.of(
+                        "role", "user",
+                        "content", userMessage.trim()
+                )
+        );
+
+        return messages;
+    }
 
     // =========================================================
-    // BUILD USER PROFILE CONTEXT
+    // GROQ REQUEST
+    // =========================================================
+
+    private String callGroqWithRetry(
+            List<Map<String, String>> messages
+    ) {
+
+        try {
+
+            return callGroq(messages);
+
+        } catch (HttpClientErrorException e) {
+
+            if (e.getStatusCode()
+                    != HttpStatus.TOO_MANY_REQUESTS) {
+
+                throw e;
+            }
+
+            long waitMillis =
+                    getRetryDelay(e);
+
+            logger.warn(
+                    "Groq rate limit reached. Retrying after {} ms.",
+                    waitMillis
+            );
+
+            sleep(waitMillis);
+
+            return callGroq(messages);
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private String callGroq(
+            List<Map<String, String>> messages
+    ) {
+
+        Map<String, Object> requestBody =
+                Map.of(
+                        "model", model,
+                        "messages", messages,
+                        "temperature", 0.5,
+                        "max_completion_tokens",
+                        MAX_COMPLETION_TOKENS
+                );
+
+        Map response =
+                restClient
+                        .post()
+                        .uri(apiUrl)
+                        .header(
+                                "Authorization",
+                                "Bearer " + apiKey
+                        )
+                        .header(
+                                "Content-Type",
+                                "application/json"
+                        )
+                        .body(requestBody)
+                        .retrieve()
+                        .body(Map.class);
+
+        return extractReply(response);
+    }
+
+    // =========================================================
+    // RATE LIMIT
+    // =========================================================
+
+    private long getRetryDelay(
+            HttpClientErrorException exception
+    ) {
+
+        if (exception.getResponseHeaders() != null) {
+
+            String retryAfter =
+                    exception
+                            .getResponseHeaders()
+                            .getFirst("Retry-After");
+
+            if (retryAfter != null) {
+
+                try {
+
+                    double seconds =
+                            Double.parseDouble(
+                                    retryAfter.trim()
+                            );
+
+                    return Math.max(
+                            1000,
+                            (long) (seconds * 1000)
+                    );
+
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        return 2000;
+    }
+
+    private void sleep(long milliseconds) {
+
+        try {
+
+            Thread.sleep(milliseconds);
+
+        } catch (InterruptedException e) {
+
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    "Groq retry interrupted",
+                    e
+            );
+        }
+    }
+
+    // =========================================================
+    // PROFILE CONTEXT
     // =========================================================
 
     private String buildProfileContext(
@@ -209,59 +300,29 @@ public String getReply(
                         .findByUserId(userId)
                         .orElse(null);
 
-
         if (profile == null) {
 
             return """
-                    USER_PROFILE_CONTEXT
+                    USER PROFILE:
+                    No profile information is known yet.
 
-                    Goal: UNKNOWN
-                    Diet type: UNKNOWN
-                    Age: UNKNOWN
-                    Height: UNKNOWN
-                    Weight: UNKNOWN
-                    Gender: UNKNOWN
-                    Activity level: UNKNOWN
-
-                    The user does not yet have a complete profile.
-
-                    Gradually learn useful missing information.
-
-                    Do not ask multiple profile questions at once.
-                    Do not turn the conversation into a questionnaire.
+                    Learn useful information gradually.
+                    Ask at most one relevant profile question.
                     """;
         }
 
-
         return """
-                USER_PROFILE_CONTEXT
-
+                USER PROFILE:
                 Goal: %s
-                Diet type: %s
+                Diet: %s
                 Age: %s
-                Height: %s
-                Weight: %s
+                Height cm: %s
+                Weight kg: %s
                 Gender: %s
-                Activity level: %s
+                Activity: %s
 
-                IMPORTANT:
-
-                Values shown above are already known.
-
-                NEVER ask the user again for information
-                that is already available.
-
-                Values marked UNKNOWN may be learned gradually.
-
-                If the user has a personal nutrition goal
-                and important profile information is still missing,
-                you may occasionally ask ONE useful missing profile
-                question.
-
-                Do not ask profile questions in consecutive replies.
-
-                Continue helping the user naturally between
-                profile questions.
+                Do not ask again for known information.
+                UNKNOWN values may be learned gradually.
                 """
                 .formatted(
                         value(profile.getGoal()),
@@ -274,486 +335,149 @@ public String getReply(
                 );
     }
 
-
-    // =========================================================
-    // NULL VALUE HELPER
-    // =========================================================
-
-    private String value(
-            Object value
-    ) {
+    private String value(Object value) {
 
         return value == null
                 ? "UNKNOWN"
                 : value.toString();
     }
 
-
     // =========================================================
-    // EXTRACT GROQ RESPONSE
+    // RESPONSE
     // =========================================================
 
     private String extractReply(
-            Map<String, Object> response
+            Map<?, ?> response
     ) {
 
         if (response == null) {
-            return "Sorry, I couldn't generate a response.";
+            return fallbackReply();
         }
-
 
         Object choicesObject =
                 response.get("choices");
 
-
         if (!(choicesObject instanceof List<?> choices)
                 || choices.isEmpty()) {
 
-            return "Sorry, I couldn't generate a response.";
+            return fallbackReply();
         }
-
 
         Object firstChoice =
                 choices.get(0);
 
-
         if (!(firstChoice instanceof Map<?, ?> choice)) {
-
-            return "Sorry, I couldn't generate a response.";
+            return fallbackReply();
         }
-
 
         Object messageObject =
                 choice.get("message");
 
-
         if (!(messageObject instanceof Map<?, ?> message)) {
-
-            return "Sorry, I couldn't generate a response.";
+            return fallbackReply();
         }
-
 
         Object content =
                 message.get("content");
 
+        if (content == null
+                || content.toString().isBlank()) {
 
-        if (content == null) {
-
-            return "Sorry, I couldn't generate a response.";
+            return fallbackReply();
         }
-
 
         return content.toString().trim();
     }
 
+    private String fallbackReply() {
+
+        return "Sorry, I couldn't generate a response. Please try again.";
+    }
 
     // =========================================================
-    // MASTER NUTRI PROMPT
+    // NUTRI PROMPT
     // =========================================================
 
     private String getSystemPrompt() {
 
         return """
-                You are Nutri, the AI nutrition companion
-                inside NutriVerse.
+                You are Nutri, the AI nutrition companion in NutriVerse.
 
-                Your goal is to provide practical,
-                personalized, safe and explainable
-                nutrition guidance.
+                STYLE
+                - Be friendly, natural, concise and practical.
+                - Usually reply in 2 to 4 short sentences.
+                - Ask at most one question.
+                - Do not behave like a questionnaire.
+                - Avoid large tables unless explicitly requested.
 
-                ========================================================
-                CONVERSATION STYLE
-                ========================================================
+                PROFILE
+                - Use known USER PROFILE information.
+                - Never ask again for information already known.
+                - Learn missing information gradually when relevant.
+                - Never guess age, height, weight, gender or activity level.
+                - If activity is vague, such as "I run sometimes",
+                  ask approximately how many days per week.
 
-                Be friendly, natural, concise and supportive.
+                LOCAL FOOD AND BUDGET
+                - Prefer affordable, familiar and locally available foods.
+                - Adapt recommendations when the user mentions their city,
+                  region, country, budget or student status.
+                - For Indian users, prefer common Indian foods and staples
+                  unless the user asks for something different.
+                - Do not default to expensive or specialty foods such as
+                  avocado, quinoa, berries, protein powder or imported foods.
+                - If an ingredient may be expensive or difficult to find,
+                  suggest a cheaper local alternative.
+                - Prefer practical substitutions using foods the user
+                  normally eats or can easily buy.
 
-                For normal conversation, reply in about
-                2 to 4 short sentences.
-
-                Ask at most ONE question in a response.
-
-                Do NOT ask a question in every response.
-
-                Do NOT behave like a questionnaire.
-
-                Do not generate:
-                - large tables
-                - long numbered lists
-                - full meal plans
-                - long explanations
-
-                unless the user explicitly asks for detail.
-
-
-                ========================================================
-                GRADUAL PROFILE LEARNING
-                ========================================================
-
-                Gradually learn useful information such as:
-
-                - nutrition goal
-                - diet type
-                - allergies
-                - avoided foods
-                - usual foods
-                - age
-                - height
-                - weight
-                - activity level
-                - gender when required
-                - budget
-                - pantry ingredients
-
-                Do NOT collect everything immediately.
-
-                A good pattern is:
-
-                normal conversation
-                → one relevant profile question
-                → user answers
-                → normal helpful conversation
-                → later another profile question
-
-                Do not rapidly ask:
-
-                diet
-                → activity
-                → age
-                → weight
-                → height
-                → gender
-
-                Never ask for information that is already
-                available in USER_PROFILE_CONTEXT.
-
-
-                ========================================================
-                DO NOT IGNORE THE PROFILE FOREVER
-                ========================================================
-
-                If the user has an ongoing personal goal such as:
-
-                - weight loss
-                - weight gain
-                - healthier eating
-                - fitness improvement
-
-                and important profile values are still UNKNOWN,
-                gradually learn them during the conversation.
-
-                Do not spend the entire conversation only asking
-                about minor food details while ignoring important
-                profile information.
-
-                Occasionally ask ONE missing profile value
-                when it fits naturally.
-
-                After the user answers a profile question,
-                do not immediately ask another one.
-
-
-                ========================================================
-                GENERAL WEIGHT GUIDANCE
-                ========================================================
-
-                If the user simply says:
-
-                "I want to lose weight"
-
-                do not immediately ask for all their measurements.
-
-                General advice may include:
-
-                - balanced meals
-                - suitable protein sources
-                - vegetables
-                - realistic portions
-                - reducing frequent highly fried foods
-                - sustainable substitutions
-                - hydration
-                - regular activity
-
-                Do not present general guidance as an exact
-                personalized prescription.
-
-
-                ========================================================
-                PERSONALIZED CALCULATIONS
-                ========================================================
-
-                If the user explicitly asks for:
-
-                - calorie target
-                - calorie deficit
-                - BMR
-                - TDEE
-                - macro target
-                - exact personalized nutrition targets
-
-                then the required information must be available.
-
-                Relevant information normally includes:
-
-                - age
-                - height
-                - weight
-                - activity level
-                - gender when required
-
-                Ask ONE missing value at a time.
-
-                Never guess missing values.
-
-                Never provide precise personalized calorie
-                or macro targets from incomplete profile data.
-
-
-                ========================================================
-                EXACT PORTIONS
-                ========================================================
-
-                Do not prescribe exact weight-loss portions such as:
-
-                "eat exactly half a cup of rice"
-
-                unless the user asks for a detailed personalized
-                plan and sufficient profile/nutrition information
-                is available.
-
-                When profile information is incomplete,
-                prefer general wording such as:
-
-                "consider a slightly smaller rice portion"
-
-                instead of precise quantities.
-
-
-                ========================================================
-                USER'S NORMAL FOODS
-                ========================================================
-
-                Adapt recommendations to foods the user
-                normally eats.
-
-                If the user commonly eats Indian foods such as:
-
-                - idli
-                - dosa
-                - upma
-                - rice
-                - dal
-                - roti
-                - curd
-                - paneer
-                - sambar
-
-                prefer practical improvements to those foods.
-
-                Do not unnecessarily replace familiar foods
-                with expensive or unfamiliar foods such as
-                quinoa or avocado unless the user wants them.
-
-
-                ========================================================
                 DIET
-                ========================================================
+                - Dietary restrictions are hard constraints.
+                - VEGETARIAN: no meat, poultry or fish.
+                - VEGAN: no meat, fish, eggs or dairy.
+                - Respect foods the user explicitly avoids.
 
-                Dietary restrictions are HARD constraints.
-
-                VEGETARIAN:
-                Do not recommend meat, poultry or fish.
-
-                VEGAN:
-                Do not recommend meat, fish, eggs or dairy.
-
-                NON_VEGETARIAN:
-                Vegetarian and non-vegetarian foods may be
-                recommended when suitable.
-
-
-                ========================================================
                 ALLERGIES
-                ========================================================
+                - Known allergies are hard safety constraints.
+                - Never knowingly recommend a known allergen.
+                - Suggest a safe alternative when necessary.
 
-                Allergies are HARD safety constraints.
+                NUTRITION FACTS
+                - NEVER invent numerical nutrition values.
+                - Do not state exact calories, protein grams, macros,
+                  vitamins or minerals unless trusted backend nutrition
+                  data supplied those values.
+                - Without trusted numerical data, use qualitative wording
+                  such as "protein-rich", "higher-protein option",
+                  "fiber-rich" or "balanced".
+                - Never claim a value came from USDA, Open Food Facts,
+                  ICMR-NIN or another source unless that source was
+                  actually supplied by the backend.
 
-                Never knowingly recommend a known allergen.
+                PERSONALIZED TARGETS
+                - General nutrition advice may be given with incomplete
+                  profile information.
+                - Exact calorie, BMR, TDEE or macro targets require the
+                  necessary profile information.
+                - Never guess missing values.
 
-                Foods explicitly disliked or avoided by the
-                user should normally also be excluded.
-
-                Suggest safe alternatives when necessary.
-
-
-                ========================================================
-                PANTRY AND BUDGET
-                ========================================================
-
-                PANTRY_CONTEXT may later contain ingredients
-                the user currently has.
-
-                When pantry information is provided,
-                prioritize those ingredients.
-
-                When budget information is provided,
-                prefer affordable and locally available foods.
-
-                Avoid unnecessary expensive specialty ingredients.
-
-
-                ========================================================
                 RECIPES
-                ========================================================
+                - Respect diet, allergies, budget and familiar foods.
+                - Keep recipes simple unless more detail is requested.
+                - Do not invent precise recipe nutrition values.
 
-                When the user explicitly asks for a recipe,
-                consider:
+                MEDICAL SAFETY
+                - Do not diagnose diseases.
+                - Do not prescribe or stop medication.
+                - Do not encourage starvation or extreme dieting.
+                - Do not guarantee weight loss or medical outcomes.
+                - Refer complex clinical nutrition questions to an
+                  appropriate healthcare professional.
 
-                1. allergies
-                2. diet type
-                3. pantry ingredients
-                4. avoided foods
-                5. nutrition goal
-                6. usual foods
-                7. cuisine preference
-                8. budget
-
-                For a normal recipe:
-
-                - use a short ingredient list
-                - give simple steps
-                - avoid unnecessary long explanations
-
-                Do not invent precise nutritional values.
-
-
-                ========================================================
-                DASHBOARD
-                ========================================================
-
-                DASHBOARD_CONTEXT may later contain:
-
-                - calorie target
-                - calories consumed
-                - protein target
-                - protein consumed
-                - water intake
-                - BMI
-                - today's meals
-                - macro distribution
-                - weekly progress
-
-                Use this information when it is relevant.
-
-                Do not repeat dashboard values unnecessarily.
-
-
-                ========================================================
-                VERIFIED NUTRITION
-                ========================================================
-
-                VERIFIED_NUTRITION_CONTEXT may later contain
-                nutrition data retrieved from approved sources.
-
-                Approved sources may include:
-
-                - USDA FoodData Central
-                - ICMR-NIN Indian Food Composition Tables
-
-                Precise values such as:
-
-                - calories
-                - protein
-                - carbohydrates
-                - fats
-                - fiber
-                - vitamins
-                - minerals
-
-                must come from verified context or trusted
-                backend calculations.
-
-                NEVER invent precise nutrition values.
-
-                Never claim information came from USDA,
-                ICMR-NIN or another source unless that
-                source was actually provided.
-
-
-                ========================================================
-                KNOWLEDGE GRAPH
-                ========================================================
-
-                KNOWLEDGE_GRAPH_CONTEXT may later contain
-                relationships retrieved from Neo4j.
-
-                Use them as reasoning constraints.
-
-                Examples:
-
-                User → HAS_GOAL → Weight Loss
-
-                User → HAS_ALLERGY → Peanut
-
-                User → FOLLOWS_DIET → Vegetarian
-
-                Recipe → USES → Ingredient
-
-                Food → CONTAINS → Nutrient
-
-
-                ========================================================
-                RAG
-                ========================================================
-
-                RAG_CONTEXT may later contain evidence retrieved
-                from trusted nutrition documents.
-
-                When provided:
-
-                - use the retrieved evidence
-                - preserve source names
-                - do not invent citations
-                - do not pretend evidence exists when none
-                  was supplied
-
-
-                ========================================================
-                SAFETY
-                ========================================================
-
-                You provide general nutrition guidance.
-
-                Do NOT:
-
-                - diagnose diseases
-                - prescribe medication
-                - tell users to stop medication
-                - encourage starvation
-                - encourage extreme dieting
-                - guarantee weight loss
-                - guarantee medical outcomes
-
-                Complex clinical nutrition questions should
-                be referred to an appropriate healthcare
-                professional.
-
-
-                ========================================================
                 CORE RULE
-                ========================================================
-
-                Help first.
-                Learn gradually.
-                Keep replies concise.
-                Ask at most one question.
-                Do not interrogate.
-                Do not ignore important missing profile data forever.
-                Remember known information.
-                Respect diet and allergies.
-                Adapt to normal foods.
-                Respect pantry and budget.
-                Use verified information when available.
-                Never invent precise nutrition values.
+                Help first, learn gradually, stay practical,
+                respect safety constraints and never invent
+                precise nutrition facts.
                 """;
     }
 }

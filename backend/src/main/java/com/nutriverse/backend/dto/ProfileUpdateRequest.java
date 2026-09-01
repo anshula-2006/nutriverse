@@ -10,10 +10,6 @@ public class ProfileUpdateRequest {
     private String activityLevel;
     private String goal;
 
-    private Integer dailyCalorieTarget;
-    private Integer dailyProteinTarget;
-    private Double dailyWaterTarget;
-
 
     public Integer getAge() {
         return age;
@@ -66,32 +62,5 @@ public class ProfileUpdateRequest {
 
     public void setGoal(String goal) {
         this.goal = goal;
-    }
-
-
-    public Integer getDailyCalorieTarget() {
-        return dailyCalorieTarget;
-    }
-
-    public void setDailyCalorieTarget(Integer dailyCalorieTarget) {
-        this.dailyCalorieTarget = dailyCalorieTarget;
-    }
-
-
-    public Integer getDailyProteinTarget() {
-        return dailyProteinTarget;
-    }
-
-    public void setDailyProteinTarget(Integer dailyProteinTarget) {
-        this.dailyProteinTarget = dailyProteinTarget;
-    }
-
-
-    public Double getDailyWaterTarget() {
-        return dailyWaterTarget;
-    }
-
-    public void setDailyWaterTarget(Double dailyWaterTarget) {
-        this.dailyWaterTarget = dailyWaterTarget;
     }
 }
