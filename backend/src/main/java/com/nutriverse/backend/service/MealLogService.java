@@ -17,15 +17,6 @@ public class MealLogService {
         this.mealLogRepository = mealLogRepository;
     }
 
-    public MealLog addMeal(MealLog mealLog) {
-
-        if (mealLog.getLoggedAt() == null) {
-            mealLog.setLoggedAt(LocalDateTime.now());
-        }
-
-        return mealLogRepository.save(mealLog);
-    }
-
     public List<MealLog> getTodayMeals(String userId) {
 
         LocalDate today = LocalDate.now();

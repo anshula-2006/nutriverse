@@ -45,6 +45,8 @@ public class WaterLogService {
 
         return getTodayWaterLogs(userId)
                 .stream()
+                .filter(log -> log.getAmountLiters() != null && Double.isFinite(log.getAmountLiters())
+                        && log.getAmountLiters() > 0)
                 .mapToDouble(WaterLog::getAmountLiters)
                 .sum();
     }

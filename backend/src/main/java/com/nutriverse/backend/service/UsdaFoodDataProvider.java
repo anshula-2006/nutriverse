@@ -4,12 +4,19 @@ import com.nutriverse.backend.dto.NutritionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class UsdaFoodDataProvider implements NutritionProvider {
@@ -20,13 +27,20 @@ public class UsdaFoodDataProvider implements NutritionProvider {
     private final RestClient client;
     private final String apiKey;
 
+    @Autowired
     public UsdaFoodDataProvider(
             @Value("${usda.api.url}") String apiUrl,
             @Value("${usda.api.key}") String apiKey) {
 
-        this.client = RestClient.builder()
-                .baseUrl(apiUrl)
-                .build();
+        SimpleClientHttpRequestFactory requests = new SimpleClientHttpRequestFactory();
+        requests.setConnectTimeout(5000);
+        requests.setReadTimeout(10000);
+        this.client = RestClient.builder().baseUrl(apiUrl).requestFactory(requests).build();
+        this.apiKey = apiKey;
+    }
+
+    UsdaFoodDataProvider(RestClient client, String apiKey) {
+        this.client = client;
         this.apiKey = apiKey;
     }
 
@@ -34,6 +48,7 @@ public class UsdaFoodDataProvider implements NutritionProvider {
     public List<NutritionResult> search(String query) {
 
         List<NutritionResult> results = new ArrayList<>();
+        Set<String> sourceIds = new HashSet<>();
 
         if (query == null || query.isBlank()) {
             return results;
@@ -43,20 +58,16 @@ public class UsdaFoodDataProvider implements NutritionProvider {
             Map<?, ?> response = client.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/foods/search")
-                            .queryParam("api_key", apiKey)
-                            .queryParam("query", query.trim())
+                            .queryParam("api_key", "{apiKey}")
+                            .queryParam("query", "{query}")
                             .queryParam("pageSize", 10)
-                            .queryParam(
-                                    "dataType",
-                                    "Foundation,SR Legacy,Survey (FNDDS)"
-                            )
-                            .build())
+                            .build(apiKey, query.trim()))
                     .retrieve()
                     .body(Map.class);
 
             if (response == null ||
                     !(response.get("foods") instanceof List<?> foods)) {
-                return results;
+                throw new IllegalStateException("Missing USDA search results");
             }
 
             for (Object object : foods) {
@@ -65,15 +76,12 @@ public class UsdaFoodDataProvider implements NutritionProvider {
                 }
 
                 NutritionResult result = convertFood(food);
-                if (result != null) {
+                if (result != null && sourceIds.add(result.getSourceId())) {
                     results.add(result);
                 }
             }
         } catch (Exception e) {
-            logger.warn(
-                    "USDA FoodData Central search failed ({})",
-                    e.getClass().getSimpleName()
-            );
+            throw unavailable("search", e);
         }
 
         return results;
@@ -91,20 +99,32 @@ public class UsdaFoodDataProvider implements NutritionProvider {
             Map<?, ?> food = client.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/food/{fdcId}")
-                            .queryParam("api_key", apiKey)
-                            .build(fdcId))
+                            .queryParam("api_key", "{apiKey}")
+                            .build(fdcId, apiKey))
                     .retrieve()
                     .body(Map.class);
 
-            return food == null ? null : convertFood(food);
+            if (food == null || !fdcId.equals(positiveLong(text(food.get("fdcId"))))) {
+                throw new IllegalStateException("USDA returned a different food identifier");
+            }
+            return convertFood(food);
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                return null;
+            }
+            throw unavailable("lookup", e);
         } catch (Exception e) {
-            logger.warn(
-                    "USDA FoodData Central lookup failed for fdcId {} ({})",
-                    fdcId,
-                    e.getClass().getSimpleName()
-            );
-            return null;
+            throw unavailable("lookup", e);
         }
+    }
+
+    private ResponseStatusException unavailable(String operation, Exception error) {
+        // Exception messages and response bodies can contain the API key or the user's query.
+        String status = error instanceof RestClientResponseException response
+                ? Integer.toString(response.getStatusCode().value()) : "unavailable";
+        logger.warn("USDA {} failed: status={} type={}", operation, status, error.getClass().getSimpleName());
+        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "USDA FoodData Central is unavailable. Please try again shortly.");
     }
 
     private NutritionResult convertFood(Map<?, ?> food) {
@@ -113,7 +133,7 @@ public class UsdaFoodDataProvider implements NutritionProvider {
         String fdcId = text(food.get("fdcId"));
         String dataType = text(food.get("dataType"));
 
-        if (description == null || fdcId == null ||
+        if (description == null || positiveLong(fdcId) == null ||
                 !hasPer100GramValues(food, dataType) ||
                 !(food.get("foodNutrients") instanceof List<?> nutrients)) {
             return null;
@@ -200,7 +220,10 @@ public class UsdaFoodDataProvider implements NutritionProvider {
 
             if (matches && expectedUnit.equalsIgnoreCase(unit)) {
                 Double amount = number(row.get("amount"));
-                return amount != null ? amount : number(row.get("value"));
+                Double value = amount != null ? amount : number(row.get("value"));
+                if (value != null) {
+                    return value;
+                }
             }
         }
 
@@ -264,12 +287,13 @@ public class UsdaFoodDataProvider implements NutritionProvider {
     }
 
     private Double number(Object value) {
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
-
         try {
-            return value == null ? null : Double.parseDouble(value.toString());
+            if (value == null) {
+                return null;
+            }
+            double parsed = value instanceof Number number
+                    ? number.doubleValue() : Double.parseDouble(value.toString());
+            return Double.isFinite(parsed) && parsed >= 0 ? parsed : null;
         } catch (NumberFormatException e) {
             return null;
         }

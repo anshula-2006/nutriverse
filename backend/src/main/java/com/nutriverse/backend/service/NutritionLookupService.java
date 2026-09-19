@@ -4,6 +4,8 @@ import com.nutriverse.backend.dto.NutritionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,17 +43,28 @@ public class NutritionLookupService {
             return results;
         }
 
-        List<NutritionResult> found =
-                searchProvider(usdaProvider, query);
-
-        if (!found.isEmpty()) {
-            return found;
+        if (query.length() > 200) {
+            throw new IllegalArgumentException("Search query is too long");
         }
-
-        return searchProvider(
-                openFoodFactsProvider,
-                query
-        );
+        boolean providerFailed = false;
+        for (NutritionProvider provider : List.of(usdaProvider, openFoodFactsProvider)) {
+            try {
+                List<NutritionResult> found = provider.search(query.trim());
+                if (found == null) {
+                    providerFailed = true;
+                } else if (!found.isEmpty()) {
+                    return found;
+                }
+            } catch (RuntimeException error) {
+                logger.warn("{} search unavailable: type={}", provider.getProviderName(), error.getClass().getSimpleName());
+                providerFailed = true;
+            }
+        }
+        if (providerFailed) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Nutrition search is temporarily unavailable. Please try again shortly.");
+        }
+        return results;
     }
 
 
@@ -67,17 +80,7 @@ public class NutritionLookupService {
             return null;
         }
 
-        try {
-            return openFoodFactsProvider
-                    .findByBarcode(barcode);
-
-        } catch (Exception e) {
-            logger.warn(
-                    "Open Food Facts barcode lookup failed ({})",
-                    e.getClass().getSimpleName()
-            );
-            return null;
-        }
+        return openFoodFactsProvider.findByBarcode(barcode);
     }
 
 
@@ -105,40 +108,13 @@ public class NutritionLookupService {
             return null;
         }
 
-        try {
-            return provider.findBySourceId(sourceId);
-
-        } catch (Exception e) {
-            logger.warn(
-                    "{} source lookup failed ({})",
-                    provider.getProviderName(),
-                    e.getClass().getSimpleName()
-            );
-            return null;
+        NutritionResult result = provider.findBySourceId(sourceId.trim());
+        if (result != null && (!sourceId.trim().equals(result.getSourceId())
+                || !provider.getProviderName().equals(result.getSource()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Nutrition provider returned a different food. Please search again.");
         }
-    }
-
-
-    private List<NutritionResult> searchProvider(
-            NutritionProvider provider,
-            String query) {
-
-        try {
-            List<NutritionResult> found =
-                    provider.search(query);
-
-            return found == null
-                    ? new ArrayList<>()
-                    : found;
-
-        } catch (Exception e) {
-            logger.warn(
-                    "{} search failed ({})",
-                    provider.getProviderName(),
-                    e.getClass().getSimpleName()
-            );
-            return new ArrayList<>();
-        }
+        return result;
     }
 
 

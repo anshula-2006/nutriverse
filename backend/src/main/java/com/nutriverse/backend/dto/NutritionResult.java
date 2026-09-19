@@ -44,6 +44,7 @@ public class NutritionResult {
     private String sourceType;
     private String source;
     private String sourceId;
+    private String dataType;
 
     private boolean verified;
     private boolean estimated;
@@ -183,6 +184,14 @@ public class NutritionResult {
 
     public String getSourceId() {
         return sourceId;
+    }
+
+    public String getDataType() {
+        return dataType;
+    }
+
+    public void setDataType(String dataType) {
+        this.dataType = dataType;
     }
 
     public void setSourceId(String sourceId) {

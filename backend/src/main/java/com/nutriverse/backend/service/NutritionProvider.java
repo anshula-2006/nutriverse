@@ -12,9 +12,7 @@ public interface NutritionProvider {
         return null;
     }
 
-    default NutritionResult findBySourceId(String sourceId) {
-        return null;
-    }
+    NutritionResult findBySourceId(String sourceId);
 
     String getProviderName();
 }

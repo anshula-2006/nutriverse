@@ -1,141 +1,10 @@
-* {
-  box-sizing: border-box;
-}
-
 .chat-page {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
-  color: #26312a;
+  color: var(--nv-dark);
   font-family: "Segoe UI", Arial, sans-serif;
-  background: #f6f8f2;
-}
-
-
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-
-.chat-sidebar {
-  width: 220px;
-  min-height: 100vh;
-  padding: 24px 16px;
-
-  display: flex;
-  flex-direction: column;
-
-  background: #263a2f;
-  color: white;
-}
-
-.chat-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  margin-bottom: 30px;
-}
-
-.chat-brand > span {
-  font-size: 27px;
-}
-
-.chat-brand h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.chat-brand small {
-  color: #b8c8bc;
-  font-size: 10px;
-}
-
-
-/* =========================================================
-   SIDEBAR NAVIGATION
-   ========================================================= */
-
-.chat-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.chat-nav button {
-  width: 100%;
-  padding: 12px 14px;
-
-  border: 0;
-  border-radius: 10px;
-
-  background: transparent;
-  color: #d3ded5;
-
-  text-align: left;
-  font-size: 13px;
-
-  cursor: pointer;
-
-  transition: 0.2s ease;
-}
-
-.chat-nav button:hover:not(:disabled),
-.chat-nav .active {
-  background: #dde9d5;
-  color: #263a2f;
-}
-
-.chat-nav button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-
-/* =========================================================
-   USER PROFILE
-   ========================================================= */
-
-.chat-profile {
-  margin-top: auto;
-  padding: 11px;
-
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  border-radius: 12px;
-
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.chat-profile-icon {
-  width: 38px;
-  height: 38px;
-
-  flex-shrink: 0;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 50%;
-
-  background: #6f9068;
-
-  color: white;
-  font-weight: bold;
-}
-
-.chat-profile strong {
-  display: block;
-  font-size: 13px;
-}
-
-.chat-profile small {
-  display: block;
-
-  margin-top: 2px;
-
-  color: #b9c8bc;
-  font-size: 10px;
+  background: var(--nv-cream-soft);
 }
 
 
@@ -145,25 +14,16 @@
 
 .chat-main {
   flex: 1;
-  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
 
   display: flex;
   flex-direction: column;
 
   overflow: hidden;
 
-  background:
-    radial-gradient(
-      circle at 85% 15%,
-      #e4eddc,
-      transparent 28%
-    ),
-    radial-gradient(
-      circle at 20% 85%,
-      #edf3e8,
-      transparent 25%
-    ),
-    #f7f8f3;
+  background: var(--nv-cream-soft);
 }
 
 
@@ -414,7 +274,7 @@
 }
 
 .chat-message.user .chat-bubble {
-  background: #5e8059;
+  background: var(--nv-olive);
   color: white;
 
   border: 0;
@@ -557,17 +417,18 @@
 
   min-height: 40px;
   max-height: 120px;
+  min-width: 0;
 
   padding: 10px 0;
 
   resize: none;
 
   border: 0;
-  outline: none;
+  outline-offset: 2px;
 
   background: transparent;
 
-  color: #26312a;
+  color: var(--nv-dark);
 
   font: inherit;
   font-size: 13px;
@@ -595,7 +456,7 @@
   border: 0;
   border-radius: 12px;
 
-  background: #5e8059;
+  background: var(--nv-olive);
   color: white;
 
   font-size: 16px;
@@ -647,9 +508,6 @@
 
 @media (max-width: 1000px) {
 
-  .chat-sidebar {
-    width: 190px;
-  }
 
   .chat-welcome {
     width: 94%;
@@ -667,9 +525,6 @@
 
 @media (max-width: 800px) {
 
-  .chat-sidebar {
-    display: none;
-  }
 
   .chat-header {
     padding: 15px 18px;
@@ -732,4 +587,20 @@
   .chat-table-row {
     grid-template-columns: 1fr;
   }
+}
+
+.chat-header, .chat-input-area { flex-shrink: 0; }
+.chat-messages { min-height: 0; }
+.chat-food-context { padding: 12px 24px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--nv-green-light); font-size: 12px; flex-shrink: 0; }
+.chat-food-context span { flex: 1 1 260px; overflow-wrap: anywhere; }
+.chat-food-context button { padding: 7px 11px; border: 1px solid var(--nv-border); border-radius: 999px; background: var(--nv-white); color: var(--nv-olive); }
+.chat-message-content { min-width: 0; }
+.chat-welcome h1 { font-family: Georgia, serif; }
+@media (max-width: 800px) {
+  .chat-main { height: auto; flex: 1; min-height: 0; }
+  .chat-header { gap: 12px; }
+  .chat-food-context { padding: 10px 16px; }
+  .chat-online { display: none; }
+  .chat-message-content { max-width: calc(100% - 46px); }
+  .chat-message.user .chat-message-content { max-width: 92%; }
 }

@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface ChatMessageRepository extends MongoRepository<ChatMessage, String> {
 
-    List<ChatMessage> findByConversationIdOrderByTimestampAsc(String conversationId);
+    List<ChatMessage> findTop10ByConversationIdOrderByTimestampDesc(String conversationId);
 }

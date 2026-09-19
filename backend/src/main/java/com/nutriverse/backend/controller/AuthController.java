@@ -13,8 +13,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpStatus;
 
-@CrossOrigin(origins = "http://localhost:5137")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -35,6 +36,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request) {
+
+        if (request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Password must not exceed 72 UTF-8 bytes"));
+        }
 
         if (userRepository.existsByUsername(request.getUsername())) {
             return ResponseEntity
@@ -74,9 +79,9 @@ public class AuthController {
                 .findByUsername(request.getUsername())
                 .orElse(null);
 
-        if (user == null) {
+        if (user == null || request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
             return ResponseEntity
-                    .badRequest()
+                    .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
                             "Invalid username or password"
@@ -91,7 +96,7 @@ public class AuthController {
 
         if (!passwordMatches) {
             return ResponseEntity
-                    .badRequest()
+                    .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
                             "Invalid username or password"

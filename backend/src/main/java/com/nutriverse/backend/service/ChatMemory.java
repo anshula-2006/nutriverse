@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
 
 @Service
 public class ChatMemory {
@@ -18,19 +20,13 @@ public class ChatMemory {
 
     public List<Map<String, String>> getHistory(String conversationId) {
 
-        List<ChatMessage> messages =
-                chatMessageRepository
-                        .findByConversationIdOrderByTimestampAsc(conversationId);
-
-        // Keep only latest 10 messages
-        if (messages.size() > 10) {
-            messages = messages.subList(
-                    messages.size() - 10,
-                    messages.size()
-            );
-        }
+        List<ChatMessage> messages = new ArrayList<>(chatMessageRepository
+                .findTop10ByConversationIdOrderByTimestampDesc(conversationId));
+        Collections.reverse(messages);
 
         return messages.stream()
+                .filter(message -> ("user".equals(message.getRole()) || "assistant".equals(message.getRole()))
+                        && message.getContent() != null && !message.getContent().isBlank())
                 .map(message -> Map.of(
                         "role", message.getRole(),
                         "content", message.getContent()

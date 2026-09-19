@@ -8,6 +8,7 @@ import com.nutriverse.backend.repository.MealLogRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Service
 public class NutritionMealService {
@@ -33,12 +34,17 @@ public class NutritionMealService {
             );
         }
 
-        if (request.getQuantityGrams() == null
-                || request.getQuantityGrams() <= 0) {
+        if (request == null || request.getQuantityGrams() == null
+                || !Double.isFinite(request.getQuantityGrams())
+                || request.getQuantityGrams() <= 0 || request.getQuantityGrams() > 10000) {
 
             throw new IllegalArgumentException(
-                    "Quantity must be greater than 0"
+                    "Quantity must be greater than 0 and at most 10000 grams"
             );
+        }
+        if (request.getMealType() == null
+                || !Set.of("BREAKFAST", "LUNCH", "DINNER", "SNACK").contains(request.getMealType())) {
+            throw new IllegalArgumentException("Select a valid meal type");
         }
 
         NutritionResult food =
@@ -53,10 +59,20 @@ public class NutritionMealService {
             );
         }
 
-        double baseSize =
-                food.getServingSize() != null
-                        ? food.getServingSize()
-                        : 100.0;
+        if (food.getServingSize() == null || !Double.isFinite(food.getServingSize())
+                || food.getServingSize() <= 0 || !"g".equals(food.getServingUnit())
+                || food.getSourceId() == null || !food.getSourceId().equals(request.getSourceId())
+                || food.getSource() == null || food.getSourceType() == null) {
+            throw new IllegalArgumentException("Selected food has no matching source or gram-based serving");
+        }
+        boolean usda = "USDA FoodData Central".equals(food.getSource())
+                && "AUTHORITATIVE_DATABASE".equals(food.getSourceType());
+        boolean off = "Open Food Facts".equals(food.getSource())
+                && "PRODUCT_DATABASE".equals(food.getSourceType());
+        if ((!usda && !off) || food.isVerified() != usda || food.isEstimated()) {
+            throw new IllegalArgumentException("Selected food provenance could not be confirmed");
+        }
+        double baseSize = food.getServingSize();
 
         double factor =
                 request.getQuantityGrams() / baseSize;
@@ -99,12 +115,13 @@ public class NutritionMealService {
             Double value,
             double factor) {
 
-        if (value == null) {
+        if (value == null || !Double.isFinite(value) || value < 0) {
             return null;
         }
-
-        return Math.round(
-                value * factor * 100.0
-        ) / 100.0;
+        double scaled = value * factor;
+        if (!Double.isFinite(scaled) || scaled > Long.MAX_VALUE / 100.0) {
+            throw new IllegalArgumentException("Nutrient value is outside the supported range");
+        }
+        return Math.round(scaled * 100.0) / 100.0;
     }
 }

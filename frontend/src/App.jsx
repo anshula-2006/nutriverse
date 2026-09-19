@@ -5,6 +5,7 @@ import Register from "./Register.jsx";
 import Login from "./Login.jsx";
 import Chat from "./Chat.jsx";
 import Dashboard from "./Dashboard.jsx";
+import Profile from "./Profile.jsx";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
 
       <Route path="/chat" element={<Chat />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/profile" element={<Profile />} />
 
     </Routes>
   );

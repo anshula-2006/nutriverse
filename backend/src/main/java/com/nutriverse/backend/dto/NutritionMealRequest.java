@@ -1,22 +1,29 @@
 package com.nutriverse.backend.dto;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
 public class NutritionMealRequest {
 
-    private String userId;
+    @NotBlank
+    @Pattern(regexp = "BREAKFAST|LUNCH|DINNER|SNACK")
     private String mealType;
+    @NotBlank
+    @Size(max = 80)
     private String source;
+    @NotBlank
+    @Pattern(regexp = "[0-9]{1,24}")
     private String sourceId;
+    @NotNull
+    @DecimalMin(value = "0", inclusive = false)
+    @DecimalMax("10000")
     private Double quantityGrams;
 
     public NutritionMealRequest() {
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
     }
 
     public String getMealType() {

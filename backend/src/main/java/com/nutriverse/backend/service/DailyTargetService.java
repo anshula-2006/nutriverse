@@ -29,7 +29,8 @@ public class DailyTargetService {
         }
 
         if (!hasRequiredData(profile)) {
-            return profile;
+            clearTargets(profile);
+            return profileRepository.save(profile);
         }
 
         Double bmr =
@@ -50,6 +51,11 @@ public class DailyTargetService {
                         maintenanceCalories,
                         profile.getGoal()
                 );
+
+        if (!Double.isFinite(calorieTarget) || calorieTarget <= 0) {
+            clearTargets(profile);
+            return profileRepository.save(profile);
+        }
 
         double proteinPerKg =
                 getProteinPerKg(
@@ -91,10 +97,14 @@ public class DailyTargetService {
             NutritionProfile profile) {
 
         return profile.getAge() != null
+                && profile.getAge() >= 18 && profile.getAge() <= 120
                 && profile.getHeight() != null
+                && Double.isFinite(profile.getHeight()) && profile.getHeight() >= 50 && profile.getHeight() <= 250
                 && profile.getWeight() != null
+                && Double.isFinite(profile.getWeight()) && profile.getWeight() >= 10 && profile.getWeight() <= 500
                 && profile.getGender() != null
-                && profile.getActivityLevel() != null;
+                && java.util.Set.of("SEDENTARY", "LIGHTLY_ACTIVE", "MODERATELY_ACTIVE", "VERY_ACTIVE", "EXTRA_ACTIVE")
+                        .contains(profile.getActivityLevel() == null ? "" : profile.getActivityLevel());
     }
 
 

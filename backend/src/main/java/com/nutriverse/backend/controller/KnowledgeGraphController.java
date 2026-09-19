@@ -4,6 +4,8 @@ import com.nutriverse.backend.model.FoodNode;
 import com.nutriverse.backend.repository.FoodNodeRepository;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -21,7 +23,10 @@ public class KnowledgeGraphController {
     }
 
     @GetMapping("/foods")
-    public List<FoodNode> getFoods() {
+    public List<FoodNode> getFoods(@RequestAttribute(value = "authenticatedRole", required = false) String role) {
+        if (!"ADMIN".equals(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrator access required");
+        }
 
         return foodNodeRepository
                 .findAll();

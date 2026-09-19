@@ -7,6 +7,9 @@ import com.nutriverse.backend.service.NutritionLookupService;
 import com.nutriverse.backend.service.NutritionMealService;
 
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -39,12 +42,22 @@ public class NutritionController {
         return lookupService.findByBarcode(barcode);
     }
 
+    @GetMapping("/food")
+    public NutritionResult food(@RequestParam String source, @RequestParam String sourceId) {
+        NutritionResult result = lookupService.findBySourceId(source, sourceId);
+        if (result == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Selected food could not be retrieved from its source");
+        }
+        return result;
+    }
+
     @PostMapping("/log-meal")
     public MealLog logMeal(
-            @RequestBody NutritionMealRequest request) {
+            @RequestAttribute("authenticatedUserId") String userId,
+            @Valid @RequestBody NutritionMealRequest request) {
 
         return mealService.logMeal(
-                request.getUserId(),
+                userId,
                 request
         );
     }

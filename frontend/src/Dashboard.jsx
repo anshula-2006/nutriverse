@@ -1,25 +1,24 @@
-import { useEffect, useState } from "react";
+import AppNav from "./AppNav.jsx";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL, handleUnauthorized, readResponse } from "./api.js";
 
 import dashboardHero from "./assets/images/dashboard-hero.jpg";
 import "./Dashboard.css";
 
-const API = "http://localhost:8080";
-
 export default function Dashboard() {
   const navigate = useNavigate();
-
-  const user = JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
-
   const token = localStorage.getItem("token");
-
   const [data, setData] = useState(null);
-
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState("");
+  const mutationRef = useRef(false);
+  const searchRef = useRef(null);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [showWater, setShowWater] = useState(false);
   const [waterMl, setWaterMl] = useState("");
-
   const [showFood, setShowFood] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -27,237 +26,136 @@ export default function Dashboard() {
   const [grams, setGrams] = useState("");
   const [mealType, setMealType] = useState("SNACK");
 
-  // =========================================================
-  // AUTH CHECK
-  // =========================================================
+  const loadDashboard = useCallback(async (signal) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_URL}/api/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }, signal
+      });
+      if (handleUnauthorized(response, navigate)) return;
+      const dashboard = await readResponse(response, "Could not load your dashboard");
+      if (Array.isArray(dashboard) || (dashboard.todayMeals != null && !Array.isArray(dashboard.todayMeals))) {
+        throw new Error("The server returned an invalid dashboard.");
+      }
+      if (!signal?.aborted) setData(dashboard);
+    } catch (failure) {
+      if (failure.name !== "AbortError") setError(failure.message || "Could not load your dashboard.");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [navigate, token]);
 
   useEffect(() => {
-    if (!user.id || !token) {
-      navigate("/login");
+    if (!token) {
+      navigate("/login", { replace: true });
       return;
     }
+    const controller = new AbortController();
+    loadDashboard(controller.signal);
+    return () => controller.abort();
+  }, [loadDashboard, navigate, token]);
 
-    loadDashboard();
-  }, []);
-
-  // =========================================================
-  // UNAUTHORIZED HANDLER
-  // =========================================================
-
-  function handleUnauthorized(response) {
-    if (response.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      navigate("/login");
-
-      return true;
-    }
-
-    return false;
-  }
-
-  // =========================================================
-  // LOAD DASHBOARD
-  // =========================================================
-
-  async function loadDashboard() {
-    try {
-      const response = await fetch(
-        `${API}/api/dashboard/${user.id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      if (handleUnauthorized(response)) {
-        return;
-      }
-
-      if (!response.ok) {
-        console.error(
-          "Dashboard request failed:",
-          response.status
-        );
-        return;
-      }
-
-      const dashboardData = await response.json();
-
-      setData(dashboardData);
-
-    } catch (error) {
-      console.error(
-        "Dashboard loading failed:",
-        error
-      );
-    }
-  }
-
-  // =========================================================
-  // LOG WATER
-  // =========================================================
+  useEffect(() => () => searchRef.current?.abort(), []);
 
   async function logWater() {
+    if (mutationRef.current) return;
     const ml = Number(waterMl);
-
-    if (ml <= 0) {
-      alert("Enter a valid amount.");
+    if (!Number.isFinite(ml) || ml <= 0) {
+      setError("Enter a valid amount of water.");
       return;
     }
-
+    mutationRef.current = true;
+    setSaving("water");
+    setError("");
     try {
-      const response = await fetch(
-        `${API}/api/water`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-
-          body: JSON.stringify({
-            userId: user.id,
-            amountLiters: ml / 1000
-          })
-        }
-      );
-
-      if (handleUnauthorized(response)) {
-        return;
-      }
-
-      if (!response.ok) {
-        alert("Could not log water.");
-        return;
-      }
-
+      const response = await fetch(`${API_URL}/api/water`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amountLiters: ml / 1000 })
+      });
+      if (handleUnauthorized(response, navigate)) return;
+      await readResponse(response, "Could not log water");
       setWaterMl("");
       setShowWater(false);
-
       await loadDashboard();
-
-    } catch (error) {
-      console.error(
-        "Water logging failed:",
-        error
-      );
-
-      alert("Could not log water.");
+    } catch (failure) {
+      setError(failure.message || "Could not log water.");
+    } finally {
+      mutationRef.current = false;
+      setSaving("");
     }
   }
 
-  // =========================================================
-  // SEARCH FOOD
-  // =========================================================
+  function updateQuery(value) {
+    searchRef.current?.abort();
+    setQuery(value);
+    setResults([]);
+    setSearched(false);
+    setSearching(false);
+  }
 
   async function searchFood() {
-    if (!query.trim()) {
-      return;
-    }
-
+    if (!query.trim()) return;
+    searchRef.current?.abort();
+    const controller = new AbortController();
+    searchRef.current = controller;
+    setSearching(true);
+    setSearched(false);
+    setError("");
+    setResults([]);
     try {
-      const response = await fetch(
-        `${API}/api/nutrition/search?query=${encodeURIComponent(
-          query
-        )}`,
-        {
-          method: "GET",
-
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      if (handleUnauthorized(response)) {
-        return;
+      const response = await fetch(`${API_URL}/api/nutrition/search?query=${encodeURIComponent(query.trim())}`, {
+        headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
+      });
+      if (handleUnauthorized(response, navigate)) return;
+      const foods = await readResponse(response, "Food search failed");
+      if (!Array.isArray(foods) || foods.some(food => !food || typeof food.foodName !== "string" || !food.sourceId)) {
+        throw new Error("The server returned invalid food search results.");
       }
-
-      if (!response.ok) {
-        alert("Food search failed.");
-        return;
+      if (!controller.signal.aborted) {
+        setResults(foods);
+        setSearched(true);
       }
-
-      const foodResults = await response.json();
-
-      setResults(foodResults);
-
-    } catch (error) {
-      console.error(
-        "Food search failed:",
-        error
-      );
-
-      alert("Food search failed.");
+    } catch (failure) {
+      if (failure.name !== "AbortError") setError(failure.message || "Food search failed.");
+    } finally {
+      if (!controller.signal.aborted) setSearching(false);
     }
   }
-
-  // =========================================================
-  // LOG FOOD
-  // =========================================================
 
   async function logFood() {
-    if (!selectedFood || Number(grams) <= 0) {
-      alert(
-        "Select a food and enter quantity."
-      );
+    if (mutationRef.current) return;
+    const quantityGrams = Number(grams);
+    if (!selectedFood || !Number.isFinite(quantityGrams) || quantityGrams <= 0) {
+      setError("Select a food and enter a valid quantity.");
       return;
     }
-
+    mutationRef.current = true;
+    setSaving("food");
+    setError("");
     try {
-      const response = await fetch(
-        `${API}/api/nutrition/log-meal`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-
-          body: JSON.stringify({
-            userId: user.id,
-            mealType: mealType,
-            source: selectedFood.source,
-            sourceId: selectedFood.sourceId,
-            quantityGrams: Number(grams)
-          })
-        }
-      );
-
-      if (handleUnauthorized(response)) {
-        return;
-      }
-
-      if (!response.ok) {
-        alert("Could not log food.");
-        return;
-      }
-
+      const response = await fetch(`${API_URL}/api/nutrition/log-meal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mealType, source: selectedFood.source, sourceId: selectedFood.sourceId, quantityGrams })
+      });
+      if (handleUnauthorized(response, navigate)) return;
+      await readResponse(response, "Could not log food");
       closeFood();
-
       await loadDashboard();
-
-    } catch (error) {
-      console.error(
-        "Food logging failed:",
-        error
-      );
-
-      alert("Could not log food.");
+    } catch (failure) {
+      setError(failure.message || "Could not log food.");
+    } finally {
+      mutationRef.current = false;
+      setSaving("");
     }
   }
 
-  // =========================================================
-  // CLOSE FOOD MODAL
-  // =========================================================
-
   function closeFood() {
+    searchRef.current?.abort();
+    setSearching(false);
+    setSearched(false);
     setShowFood(false);
     setQuery("");
     setResults([]);
@@ -284,7 +182,7 @@ export default function Dashboard() {
   }
 
   function format(value) {
-    if (!value) {
+    if (typeof value !== "string" || !value) {
       return "Not Set";
     }
 
@@ -305,7 +203,12 @@ export default function Dashboard() {
   if (!data) {
     return (
       <div className="dash-loading">
-        Loading...
+        {loading ? "Loading your dashboard..." : (
+          <div role="alert">
+            <p>{error || "Your dashboard is unavailable."}</p>
+            <button onClick={() => loadDashboard()}>Try again</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -354,42 +257,10 @@ export default function Dashboard() {
         )
       : 0;
 
-  const fatPct =
-    Math.max(
-      0,
-      100 -
-        carbPct -
-        proteinPct
-    );
-
-  const caloriesLeft =
-    Math.max(
-      0,
-      Math.round(
-        (data.calorieTarget || 0) -
-          (data.caloriesConsumed || 0)
-      )
-    );
-
-  const proteinLeft =
-    Math.max(
-      0,
-      Math.round(
-        (data.proteinTarget || 0) -
-          (data.proteinConsumed || 0)
-      )
-    );
-
-  const waterLeft =
-    Math.max(
-      0,
-      Number(
-        (
-          (data.waterTarget || 0) -
-          (data.waterConsumed || 0)
-        ).toFixed(1)
-      )
-    );
+  const caloriesLeft = data.calorieTarget == null ? null : Math.max(0, Math.round(data.calorieTarget - data.caloriesConsumed));
+  const proteinLeft = data.proteinTarget == null ? null : Math.max(0, Math.round(data.proteinTarget - data.proteinConsumed));
+  const waterLeft = data.waterTarget == null ? null : Math.max(0, Number((data.waterTarget - data.waterConsumed).toFixed(1)));
+  const remaining = (value, unit) => value == null ? "Target not calculated" : `${value} ${unit} remaining`;
 
   // =========================================================
   // UI
@@ -400,71 +271,12 @@ export default function Dashboard() {
 
       {/* SIDEBAR */}
 
-      <aside className="dash-sidebar">
-
-        <div className="dash-brand">
-          🌿 <b>NutriVerse</b>
-        </div>
-
-        <nav>
-
-          <button className="active">
-            🏠 Dashboard
-          </button>
-
-          <button disabled>
-            🍽️ Meals
-          </button>
-
-          <button disabled>
-            📷 Food Scanner
-          </button>
-
-          <button
-            onClick={() =>
-              navigate("/chat")
-            }
-          >
-            ✨ AI Assistant
-          </button>
-
-          <button disabled>
-            📈 Progress
-          </button>
-
-          <button disabled>
-            🛒 Grocery List
-          </button>
-
-          <button disabled>
-            ⚙️ Settings
-          </button>
-
-        </nav>
-
-        <div className="dash-user">
-
-          <span>
-            {data.name?.[0]?.toUpperCase()}
-          </span>
-
-          <div>
-            <strong>
-              {data.name}
-            </strong>
-
-            <small>
-              {format(data.goal)}
-            </small>
-          </div>
-
-        </div>
-
-      </aside>
+      <AppNav name={data.name} />
 
       {/* MAIN */}
 
       <main className="dash-main">
+        {error && !showFood && !showWater && <p role="alert">{error}</p>}
 
         {/* HERO */}
 
@@ -481,12 +293,10 @@ export default function Dashboard() {
             </h1>
 
             <p>
-              You have{" "}
-              <strong>
-                {caloriesLeft} kcal
-              </strong>{" "}
-              remaining today.
-              Small choices build healthier habits.
+              {caloriesLeft == null
+                ? "Complete your profile to calculate an estimated daily target."
+                : `${caloriesLeft} kcal remaining against your estimated daily target.`}
+              {" "}Small choices build healthier habits.
             </p>
 
             <div>
@@ -526,24 +336,21 @@ export default function Dashboard() {
             icon="🔥"
             title="Calories"
             value={`${data.caloriesConsumed || 0} kcal`}
-            text={`${pct(
-              data.caloriesConsumed,
-              data.calorieTarget
-            )}% of goal`}
+            text={data.calorieTarget == null ? "Target not calculated" : `${pct(data.caloriesConsumed, data.calorieTarget)}% of estimated goal`}
           />
 
           <Metric
             icon="💪"
             title="Protein"
             value={`${data.proteinConsumed || 0} g`}
-            text={`${proteinLeft} g remaining`}
+            text={remaining(proteinLeft, "g")}
           />
 
           <Metric
             icon="💧"
             title="Water"
             value={`${data.waterConsumed || 0} L`}
-            text={`${waterLeft} L remaining`}
+            text={remaining(waterLeft, "L")}
             action={() =>
               setShowWater(true)
             }
@@ -557,6 +364,13 @@ export default function Dashboard() {
           />
 
         </section>
+
+        <p className="dash-muted">
+          {data.nutritionIncomplete
+            ? "Some logged foods have missing values or provenance. These totals include available values only. "
+            : "Totals use available values from logged foods and may be incomplete when a source omits nutrients. "}
+          Daily targets are estimates calculated from your profile.
+        </p>
 
         {/* CHARTS */}
 
@@ -711,11 +525,12 @@ export default function Dashboard() {
                       <small>
                         {meal.foodName}
                       </small>
+                      <FoodSource food={meal} linked />
 
                     </div>
 
                     <b>
-                      {meal.calories || 0} kcal
+                      {nutritionValue(meal.calories, "kcal")}
                     </b>
 
                   </div>
@@ -738,32 +553,11 @@ export default function Dashboard() {
             <p>
               💪{" "}
               <span>
-                <b>
-                  {proteinLeft}g protein
-                </b>{" "}
-                remaining
+                {remaining(proteinLeft, "g protein")}
               </span>
             </p>
-
-            <p>
-              💧{" "}
-              <span>
-                <b>
-                  {waterLeft}L water
-                </b>{" "}
-                remaining
-              </span>
-            </p>
-
-            <p>
-              🔥{" "}
-              <span>
-                <b>
-                  {caloriesLeft} kcal
-                </b>{" "}
-                available
-              </span>
-            </p>
+            <p>{remaining(waterLeft, "L water")}</p>
+            <p>{remaining(caloriesLeft, "kcal")}</p>
 
             <button
               onClick={() =>
@@ -786,9 +580,11 @@ export default function Dashboard() {
         <Modal
           title="💧 Log Water"
           close={() =>
-            setShowWater(false)
+            !saving && setShowWater(false)
           }
         >
+
+          {error && <p role="alert">{error}</p>}
 
           <div className="dash-input">
 
@@ -812,8 +608,9 @@ export default function Dashboard() {
           <button
             className="dash-save"
             onClick={logWater}
+            disabled={Boolean(saving)}
           >
-            Add Water
+            {saving === "water" ? "Adding..." : "Add Water"}
           </button>
 
         </Modal>
@@ -826,9 +623,10 @@ export default function Dashboard() {
 
         <Modal
           title="🍽️ Add Food"
-          close={closeFood}
+          close={() => !saving && closeFood()}
         >
 
+          {error && <p role="alert">{error}</p>}
           {!selectedFood ? (
 
             <>
@@ -839,9 +637,7 @@ export default function Dashboard() {
                   placeholder="Search food or brand..."
                   value={query}
                   onChange={event =>
-                    setQuery(
-                      event.target.value
-                    )
+                    updateQuery(event.target.value)
                   }
                   onKeyDown={event => {
                     if (
@@ -854,12 +650,14 @@ export default function Dashboard() {
 
                 <button
                   onClick={searchFood}
+                  disabled={searching || !query.trim()}
                 >
-                  Search
+                  {searching ? "Searching..." : "Search"}
                 </button>
 
               </div>
 
+              {searched && results.length === 0 && <p role="status">No foods found. Try another search.</p>}
               <div className="dash-results">
 
                 {results.map(
@@ -867,7 +665,7 @@ export default function Dashboard() {
 
                     <button
                       key={
-                        food.sourceId
+                        `${food.source}:${food.sourceId}`
                       }
                       onClick={() =>
                         setSelectedFood(
@@ -881,11 +679,9 @@ export default function Dashboard() {
                       </strong>
 
                       <small>
-                        {Math.round(
-                          food.calories || 0
-                        )}{" "}
-                        kcal / 100g
+                        {nutritionValue(food.calories, "kcal")} / {food.servingSize ?? "Unknown"}{food.servingUnit || ""}
                       </small>
+                      <FoodSource food={food} />
 
                     </button>
 
@@ -907,13 +703,17 @@ export default function Dashboard() {
                 </b>
 
                 <small>
-                  {Math.round(
-                    selectedFood.calories || 0
-                  )}{" "}
-                  kcal / 100g
+                  {nutritionValue(selectedFood.calories, "kcal")} / {selectedFood.servingSize ?? "Unknown"}{selectedFood.servingUnit || ""}
                 </small>
 
               </div>
+
+              <FoodSource food={selectedFood} linked />
+              <button type="button" onClick={() => navigate("/chat", {
+                state: { food: { source: selectedFood.source, sourceId: selectedFood.sourceId, foodName: selectedFood.foodName } }
+              })}>
+                Ask about this food
+              </button>
 
               <select
                 value={mealType}
@@ -964,8 +764,9 @@ export default function Dashboard() {
               <button
                 className="dash-save"
                 onClick={logFood}
+                disabled={Boolean(saving)}
               >
-                Add Meal
+                {saving === "food" ? "Adding..." : "Add Meal"}
               </button>
 
             </>
@@ -1031,26 +832,61 @@ function Modal({
   close,
   children
 }) {
-  return (
-    <div className="dash-overlay">
+  const dialogRef = useRef(null);
+  const titleId = useId();
 
-      <div className="dash-modal">
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
+
+  return (
+      <dialog
+        ref={dialogRef}
+        className="dash-modal"
+        aria-labelledby={titleId}
+        onCancel={event => { event.preventDefault(); close(); }}
+      >
 
         <button
           className="dash-close"
+          aria-label="Close dialog"
           onClick={close}
         >
           ✕
         </button>
 
-        <h2>
+        <h2 id={titleId}>
           {title}
         </h2>
 
         {children}
 
-      </div>
+      </dialog>
+  );
+}
 
-    </div>
+function nutritionValue(value, unit) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${Math.round(value * 100) / 100} ${unit}`
+    : "Value unavailable";
+}
+
+function FoodSource({ food, linked = false }) {
+  const authoritative = food.source === "USDA FoodData Central" &&
+    food.sourceType === "AUTHORITATIVE_DATABASE" && food.verified === true &&
+    food.estimated === false && /^\d+$/.test(String(food.sourceId || ""));
+  const product = food.source === "Open Food Facts" && food.sourceType === "PRODUCT_DATABASE";
+  const sourceUrl = authoritative
+    ? `https://fdc.nal.usda.gov/food-details/${encodeURIComponent(food.sourceId)}/nutrients`
+    : product && /^\d+$/.test(String(food.sourceId || ""))
+      ? `https://world.openfoodfacts.org/product/${encodeURIComponent(food.sourceId)}` : null;
+  return (
+    <small className="food-source">
+      <span>{authoritative ? "Authoritative government data" : product ? "Non-government product database" : "Source not verified."}</span>
+      <span>{food.source || "Unknown source"}{food.sourceId ? ` - ID: ${food.sourceId}` : " - no source ID"}</span>
+      {linked && sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">View source record</a>}
+    </small>
   );
 }

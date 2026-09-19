@@ -78,13 +78,7 @@ public class DashboardService {
                         .findByUserId(userId)
                         .orElse(null);
 
-        if (profile != null &&
-                (
-                        profile.getDailyCalorieTarget() == null ||
-                                profile.getDailyProteinTarget() == null ||
-                                profile.getDailyWaterTarget() == null
-                )
-        ) {
+        if (profile != null) {
 
             profile =
                     dailyTargetService
@@ -162,19 +156,25 @@ public class DashboardService {
 
         for (MealLog meal : todayMeals) {
 
-            if (meal.getCalories() != null) {
+            if (!validNutrient(meal.getCalories()) || !validNutrient(meal.getProtein())
+                    || !validNutrient(meal.getCarbs()) || !validNutrient(meal.getFat())
+                    || meal.getSourceId() == null || meal.getSource() == null) {
+                dashboard.setNutritionIncomplete(true);
+            }
+
+            if (validNutrient(meal.getCalories())) {
                 calories += meal.getCalories();
             }
 
-            if (meal.getProtein() != null) {
+            if (validNutrient(meal.getProtein())) {
                 protein += meal.getProtein();
             }
 
-            if (meal.getCarbs() != null) {
+            if (validNutrient(meal.getCarbs())) {
                 carbs += meal.getCarbs();
             }
 
-            if (meal.getFat() != null) {
+            if (validNutrient(meal.getFat())) {
                 fat += meal.getFat();
             }
         }
@@ -236,7 +236,10 @@ public class DashboardService {
 
         if (
                 profile.getHeight() == null ||
-                        profile.getWeight() == null
+                        profile.getWeight() == null ||
+                        !Double.isFinite(profile.getHeight()) || profile.getHeight() <= 0 ||
+                        !Double.isFinite(profile.getWeight()) || profile.getWeight() <= 0 ||
+                        profile.getAge() == null || profile.getAge() < 18
         ) {
             dashboard.setBmi(0);
             dashboard.setBmiCategory(
@@ -336,8 +339,7 @@ public class DashboardService {
                     meals.stream()
                             .filter(
                                     meal ->
-                                            meal.getCalories()
-                                                    != null
+                                            validNutrient(meal.getCalories())
                             )
                             .mapToDouble(
                                     MealLog::getCalories
@@ -374,5 +376,9 @@ public class DashboardService {
         return Math.round(
                 value * 10.0
         ) / 10.0;
+    }
+
+    private boolean validNutrient(Double value) {
+        return value != null && Double.isFinite(value) && value >= 0;
     }
 }

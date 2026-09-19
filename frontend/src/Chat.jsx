@@ -1,12 +1,10 @@
+import AppNav from "./AppNav.jsx";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import chatWelcome from "./assets/images/chat-welcome.jpg";
 import "./Chat.css";
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:8080";
+import { API_URL, readUser, handleUnauthorized } from "./api.js";
 
 const TEMPORARY_ERROR_MESSAGE =
   "Nutri is having trouble responding right now. Please try again in a moment.";
@@ -97,13 +95,13 @@ const suggestions = [
 function Chat() {
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const [foodContext, setFoodContext] = useState(location.state?.food || null);
   const endRef = useRef(null);
   const isSendingRef = useRef(false);
   const thinkingTimerRef = useRef(null);
 
-  const user = JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
+  const user = readUser();
 
   const token = localStorage.getItem("token");
 
@@ -120,11 +118,11 @@ function Chat() {
 
   useEffect(() => {
 
-    if (!user.id || !token) {
+    if (!token) {
       navigate("/login");
     }
 
-  }, [navigate, token, user.id]);
+  }, [navigate, token]);
 
 
   // =========================================================
@@ -158,22 +156,6 @@ function Chat() {
   // =========================================================
   // HANDLE EXPIRED / INVALID JWT
   // =========================================================
-
-  function handleUnauthorized(response) {
-
-    if (response.status === 401) {
-
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      navigate("/login");
-
-      return true;
-    }
-
-    return false;
-  }
-
 
   // =========================================================
   // SEND MESSAGE
@@ -228,14 +210,14 @@ function Chat() {
           },
 
           body: JSON.stringify({
-            conversationId: user.id,
-            message: userMessage
+            message: userMessage,
+            ...(foodContext ? { source: foodContext.source, sourceId: foodContext.sourceId } : {})
           })
         }
       );
 
 
-      if (handleUnauthorized(response)) {
+      if (handleUnauthorized(response, navigate)) {
         return;
       }
 
@@ -263,7 +245,7 @@ function Chat() {
         {
           role: "assistant",
           content:
-            data.reply ||
+            (typeof data?.reply === "string" && data.reply) ||
             "I couldn't generate a response."
         }
       ]);
@@ -299,7 +281,8 @@ function Chat() {
 
     if (
       event.key === "Enter" &&
-      !event.shiftKey
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
     ) {
 
       event.preventDefault();
@@ -320,103 +303,7 @@ function Chat() {
 
       {/* SIDEBAR */}
 
-      <aside className="chat-sidebar">
-
-
-        <div className="chat-brand">
-
-          <span>
-            🌿
-          </span>
-
-          <div>
-
-            <h2>
-              NutriVerse
-            </h2>
-
-            <small>
-              Smart Nutrition
-            </small>
-
-          </div>
-
-        </div>
-
-
-        <nav className="chat-nav">
-
-
-          <button
-            onClick={() =>
-              navigate("/dashboard")
-            }
-          >
-            🏠 Dashboard
-          </button>
-
-
-          <button disabled>
-            🍽️ Meals
-          </button>
-
-
-          <button disabled>
-            📷 Food Scanner
-          </button>
-
-
-          <button className="active">
-            ✨ AI Assistant
-          </button>
-
-
-          <button disabled>
-            📈 Progress
-          </button>
-
-
-          <button disabled>
-            🛒 Grocery List
-          </button>
-
-
-          <button disabled>
-            ⚙️ Settings
-          </button>
-
-
-        </nav>
-
-
-        <div className="chat-profile">
-
-
-          <div className="chat-profile-icon">
-
-            {user.name?.[0]
-              ?.toUpperCase() || "U"}
-
-          </div>
-
-
-          <div>
-
-            <strong>
-              {user.name || "User"}
-            </strong>
-
-            <small>
-              NutriVerse Member
-            </small>
-
-          </div>
-
-
-        </div>
-
-
-      </aside>
+      <AppNav />
 
 
       {/* MAIN */}
@@ -449,6 +336,14 @@ function Chat() {
 
         </header>
 
+
+        {foodContext && (
+          <div className="chat-food-context">
+            <span>Selected food: {foodContext.foodName}. Nutrition facts will be fetched from its source.</span>
+            <button type="button" onClick={() => sendMessage("How much protein does this food contain?")} disabled={isSending}>Ask about protein</button>
+            <button type="button" onClick={() => setFoodContext(null)} disabled={isSending}>Clear food</button>
+          </div>
+        )}
 
         {/* MESSAGES */}
 
@@ -643,6 +538,7 @@ function Chat() {
 
 
           <textarea
+            aria-label="Message to Nutri"
 
             rows="1"
 
@@ -667,6 +563,7 @@ function Chat() {
           <button
 
             className="chat-send"
+            aria-label="Send message"
 
             onClick={() =>
               sendMessage()

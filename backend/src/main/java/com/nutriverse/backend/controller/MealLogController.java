@@ -17,16 +17,16 @@ public class MealLogController {
         this.mealLogService = mealLogService;
     }
 
-    @GetMapping("/today/{userId}")
+    @GetMapping("/today")
     public List<MealLog> getTodayMeals(
-            @PathVariable String userId) {
+            @RequestAttribute("authenticatedUserId") String userId) {
 
         return mealLogService.getTodayMeals(userId);
     }
 
-    @GetMapping("/{userId}")
+    @GetMapping
     public List<MealLog> getAllMeals(
-            @PathVariable String userId) {
+            @RequestAttribute("authenticatedUserId") String userId) {
 
         return mealLogService.getAllMeals(userId);
     }

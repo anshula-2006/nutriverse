@@ -14,8 +14,8 @@ public class NutritionProfileService {
 
     public NutritionProfileService(
             NutritionProfileRepository nutritionProfileRepository,
-            DailyTargetService dailyTargetService) {
-
+            DailyTargetService dailyTargetService
+    ) {
         this.nutritionProfileRepository =
                 nutritionProfileRepository;
 
@@ -24,32 +24,44 @@ public class NutritionProfileService {
     }
 
 
-    public NutritionProfile getOrCreateProfile(
-            String userId) {
+    // =========================================================
+    // GET OR CREATE PROFILE
+    // =========================================================
 
-        return nutritionProfileRepository
+    public NutritionProfile getOrCreateProfile(
+            String userId
+    ) {
+
+        NutritionProfile profile = nutritionProfileRepository
                 .findByUserId(userId)
                 .orElseGet(() -> {
 
-                    NutritionProfile profile =
+                    NutritionProfile newProfile =
                             new NutritionProfile(userId);
 
                     return nutritionProfileRepository
-                            .save(profile);
+                            .save(newProfile);
                 });
+
+        NutritionProfile calculated = dailyTargetService.calculateTargets(userId);
+        return calculated == null ? profile : calculated;
     }
 
 
+    // =========================================================
+    // UPDATE PROFILE
+    // =========================================================
+
     public NutritionProfile updateProfile(
             String userId,
-            ProfileUpdateRequest request) {
+            ProfileUpdateRequest request
+    ) {
 
         NutritionProfile profile =
                 getOrCreateProfile(userId);
 
 
         if (request.getAge() != null) {
-
             profile.setAge(
                     request.getAge()
             );
@@ -57,7 +69,6 @@ public class NutritionProfileService {
 
 
         if (request.getHeight() != null) {
-
             profile.setHeight(
                     request.getHeight()
             );
@@ -65,7 +76,6 @@ public class NutritionProfileService {
 
 
         if (request.getWeight() != null) {
-
             profile.setWeight(
                     request.getWeight()
             );
@@ -73,15 +83,20 @@ public class NutritionProfileService {
 
 
         if (request.getGender() != null) {
-
             profile.setGender(
                     request.getGender()
             );
         }
 
 
-        if (request.getActivityLevel() != null) {
+        if (request.getDietType() != null) {
+            profile.setDietType(
+                    request.getDietType()
+            );
+        }
 
+
+        if (request.getActivityLevel() != null) {
             profile.setActivityLevel(
                     request.getActivityLevel()
             );
@@ -89,26 +104,29 @@ public class NutritionProfileService {
 
 
         if (request.getGoal() != null) {
-
             profile.setGoal(
                     request.getGoal()
             );
         }
 
 
-        // Save user-controlled profile fields first
+        /*
+         * Only user-controlled profile information
+         * is accepted from the request.
+         *
+         * Calorie, protein and water targets are
+         * calculated by the backend.
+         */
         nutritionProfileRepository.save(profile);
 
 
-        // Recalculate system-controlled targets
-        NutritionProfile updatedProfile =
+        NutritionProfile calculatedProfile =
                 dailyTargetService
                         .calculateTargets(userId);
 
 
-        if (updatedProfile != null) {
-
-            return updatedProfile;
+        if (calculatedProfile != null) {
+            return calculatedProfile;
         }
 
 

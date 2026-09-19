@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import authFood from "./assets/images/auth-food.jpg";
 import "./styles/Auth.css";
+import { API_URL, readResponse, saveSession } from "./api.js";
 
 function Register() {
   const navigate = useNavigate();
@@ -10,14 +11,19 @@ function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     setMessage("");
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/auth/register",
+        `${API_URL}/api/auth/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -29,15 +35,10 @@ function Register() {
         }
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setMessage(data.message || "Registration failed");
-        return;
-      }
+      await readResponse(response, "Registration failed");
 
       const loginResponse = await fetch(
-        "http://localhost:8080/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -48,29 +49,16 @@ function Register() {
         }
       );
 
-      const loginData = await loginResponse.json();
-
-      if (!loginResponse.ok) {
-        setMessage("Account created, but login failed.");
-        return;
-      }
-
-      localStorage.setItem("token", loginData.token);
-
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: loginData.userId,
-          name: loginData.name,
-          username: loginData.username,
-          role: loginData.role
-        })
-      );
+      const loginData = await readResponse(loginResponse, "Account created, but login failed. Please sign in");
+      saveSession(loginData);
 
       navigate("/dashboard");
 
-    } catch {
-      setMessage("Could not connect to backend");
+    } catch (error) {
+      setMessage(error.message || "Could not connect to the server. Please try again.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -123,33 +111,39 @@ function Register() {
 
             <form onSubmit={handleSubmit}>
 
-              <label>Name</label>
+              <label htmlFor="register-name">Name</label>
 
               <input
                 type="text"
                 placeholder="What should we call you?"
+                id="register-name"
+                autoComplete="name"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
               />
 
 
-              <label>Username</label>
+              <label htmlFor="register-username">Username</label>
 
               <input
                 type="text"
                 placeholder="Choose a username"
+                id="register-username"
+                autoComplete="username"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 required
               />
 
 
-              <label>Password</label>
+              <label htmlFor="register-password">Password</label>
 
               <input
                 type="password"
                 placeholder="Create a password"
+                id="register-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -157,7 +151,7 @@ function Register() {
 
 
               {message && (
-                <p className="auth-error">
+                <p className="auth-error" role="alert">
                   {message}
                 </p>
               )}
@@ -166,8 +160,9 @@ function Register() {
               <button
                 className="auth-submit"
                 type="submit"
+                disabled={submitting}
               >
-                Create Account →
+                {submitting ? "Creating account..." : "Create Account →"}
               </button>
 
             </form>

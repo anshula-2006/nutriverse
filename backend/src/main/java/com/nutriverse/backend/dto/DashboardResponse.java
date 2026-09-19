@@ -34,6 +34,10 @@ public class DashboardResponse {
 
     // Today's meals
     private List<MealLog> todayMeals;
+    private boolean nutritionIncomplete;
+
+    public boolean isNutritionIncomplete() { return nutritionIncomplete; }
+    public void setNutritionIncomplete(boolean nutritionIncomplete) { this.nutritionIncomplete = nutritionIncomplete; }
 
     // Weekly calorie graph
     private Map<String, Double> weeklyCalories;

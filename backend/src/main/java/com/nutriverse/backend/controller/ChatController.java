@@ -20,12 +20,13 @@ public class ChatController {
 
     @PostMapping
     public ChatResponse chat(
+            @RequestAttribute("authenticatedUserId") String userId,
             @Valid @RequestBody ChatRequest request) {
 
-        String reply = groqService.getReply(
-                request.getConversationId(),
+        String reply = request.getSourceId() == null ? groqService.getReply(
+                userId,
                 request.getMessage()
-        );
+        ) : groqService.getReply(userId, request.getMessage(), request.getSource(), request.getSourceId());
 
         return new ChatResponse(reply);
     }

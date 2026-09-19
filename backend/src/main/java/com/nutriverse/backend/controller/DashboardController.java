@@ -18,9 +18,9 @@ public class DashboardController {
         this.dashboardService = dashboardService;
     }
 
-    @GetMapping("/{userId}")
+    @GetMapping
     public ResponseEntity<DashboardResponse> getDashboard(
-            @PathVariable String userId) {
+            @RequestAttribute("authenticatedUserId") String userId) {
 
         DashboardResponse dashboard =
                 dashboardService.getDashboard(userId);

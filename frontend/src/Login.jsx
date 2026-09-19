@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import authFood from "./assets/images/auth-food.jpg";
 import "./styles/Auth.css";
+import { API_URL, readResponse, saveSession } from "./api.js";
 
 function Login() {
   const navigate = useNavigate();
@@ -9,14 +10,19 @@ function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     setMessage("");
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -24,29 +30,16 @@ function Login() {
         }
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setMessage(data.message || "Invalid username or password");
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: data.userId,
-          name: data.name,
-          username: data.username,
-          role: data.role
-        })
-      );
+      const data = await readResponse(response, "Could not sign in");
+      saveSession(data);
 
       navigate("/dashboard");
 
-    } catch {
-      setMessage("Could not connect to backend");
+    } catch (error) {
+      setMessage(error.message || "Could not connect to the server. Please try again.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -92,22 +85,26 @@ function Login() {
 
             <form onSubmit={handleSubmit}>
 
-              <label>Username</label>
+              <label htmlFor="login-username">Username</label>
 
               <input
                 type="text"
                 placeholder="Enter your username"
+                id="login-username"
+                autoComplete="username"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 required
               />
 
 
-              <label>Password</label>
+              <label htmlFor="login-password">Password</label>
 
               <input
                 type="password"
                 placeholder="Enter your password"
+                id="login-password"
+                autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -115,14 +112,14 @@ function Login() {
 
 
               {message && (
-                <p className="auth-error">
+                <p className="auth-error" role="alert">
                   {message}
                 </p>
               )}
 
 
-              <button className="auth-submit" type="submit">
-                Sign In →
+              <button className="auth-submit" type="submit" disabled={submitting}>
+                {submitting ? "Signing in..." : "Sign In →"}
               </button>
 
             </form>
