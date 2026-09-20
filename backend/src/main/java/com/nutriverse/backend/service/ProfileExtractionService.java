@@ -19,8 +19,7 @@ public class ProfileExtractionService {
 
     private static final Pattern DISLIKE = Pattern.compile(
             "\\b(?:i don't like|i do not like|i dislike|i hate|"
-                    + "i don't have|i do not have|i cannot eat|i can't eat|"
-                    + "avoid|exclude)\\s+([^.!?]{1,100})",
+                    + "i cannot eat|i can't eat|avoid|exclude)\\s+([^.!?]{1,100})",
             Pattern.CASE_INSENSITIVE
     );
 

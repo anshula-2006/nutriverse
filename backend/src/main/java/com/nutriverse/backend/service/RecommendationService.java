@@ -1,5 +1,6 @@
 package com.nutriverse.backend.service;
 
+import com.nutriverse.backend.dto.ChatHistoryItem;
 import com.nutriverse.backend.dto.NutritionResult;
 import com.nutriverse.backend.dto.RecommendationResponse;
 import com.nutriverse.backend.model.NutritionProfile;
@@ -16,6 +17,9 @@ import java.util.*;
 public class RecommendationService {
 
     private static final int CANDIDATE_LIMIT = 12;
+
+    // Product ranking criterion for per-100 g USDA records; not a regulatory label claim.
+    private static final double MIN_PROTEIN_GRAMS_PER_100G = 8.0;
 
     private static final Set<String> GLUTEN_RISK_WORDS = Set.of(
             "wheat", "barley", "rye", "malt", "semolina",
@@ -60,15 +64,36 @@ public class RecommendationService {
     }
 
     public boolean isStructuredFollowup(String userId, String request) {
-        if (!GroqService.isAlternativeFollowup(request) || GroqService.isRecipeRequest(request)) return false;
+        if (!GroqService.isAlternativeFollowup(request)
+                || GroqService.isRecipeRequest(request)) {
+            return false;
+        }
+
         List<ChatMessage> history = chatMemory.getRecentMessages(userId);
+
         for (int i = history.size() - 1; i >= 0; i--) {
             ChatMessage message = history.get(i);
-            if ("assistant".equals(message.getRole()) && message.getRecommendation() != null) return true;
-            // A later recipe request starts a different conversation path.
-            if ("user".equals(message.getRole()) && GroqService.isRecipeRequest(message.getContent())) return false;
+
+            if ("assistant".equals(message.getRole())) {
+                return message.getRecommendation() != null;
+            }
+
+            if ("user".equals(message.getRole())) {
+                return false;
+            }
         }
+
         return false;
+    }
+
+    public List<ChatHistoryItem> getChatHistory(String userId) {
+        return chatMemory.getRecentMessages(userId).stream()
+                .map(message -> new ChatHistoryItem(
+                        message.getRole(),
+                        message.getContent(),
+                        message.getRecommendation()
+                ))
+                .toList();
     }
 
     public RecommendationResponse recommend(
@@ -188,6 +213,10 @@ public class RecommendationService {
                     continue;
                 }
 
+                if (wantsProtein && !meetsProteinFocus(food)) {
+                    continue;
+                }
+
                 double score =
                         score(
                                 food,
@@ -241,7 +270,8 @@ public class RecommendationService {
                         );
 
                 if (!isVerified(exact)
-                        || !allowedFood(exact, diet, glutenFree, excluded, recent))
+                        || !allowedFood(exact, diet, glutenFree, excluded, recent)
+                        || wantsProtein && !meetsProteinFocus(exact))
                     continue;
 
                 result.add(
@@ -620,7 +650,8 @@ public class RecommendationService {
                 protein
                         && valid(
                         food.getProtein())
-                        ? "Verified protein evidence supports your high-protein request."
+                        ? "This option passed NutriVerse's protein-focused filter "
+                        + "(at least 8 g protein per 100 g)."
                         : fiber
                         && valid(
                         food.getFiber())
@@ -840,6 +871,14 @@ public class RecommendationService {
     ) {
         return Arrays.stream(words)
                 .anyMatch(text::contains);
+    }
+
+    private boolean meetsProteinFocus(NutritionResult food) {
+        return food != null
+                && valid(food.getProtein())
+                && food.getProtein() >= MIN_PROTEIN_GRAMS_PER_100G
+                && Double.valueOf(100.0).equals(food.getServingSize())
+                && "g".equals(food.getServingUnit());
     }
 
     private boolean valid(

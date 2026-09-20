@@ -1,5 +1,6 @@
 package com.nutriverse.backend.controller;
 
+import com.nutriverse.backend.dto.ChatHistoryItem;
 import com.nutriverse.backend.dto.ChatRequest;
 import com.nutriverse.backend.dto.ChatResponse;
 import com.nutriverse.backend.service.GroqService;
@@ -8,6 +9,8 @@ import com.nutriverse.backend.service.RecommendationService;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/chat")
@@ -19,6 +22,12 @@ public class ChatController {
     public ChatController(GroqService groqService, RecommendationService recommendationService) {
         this.groqService = groqService;
         this.recommendationService = recommendationService;
+    }
+
+    @GetMapping
+    public List<ChatHistoryItem> history(
+            @RequestAttribute("authenticatedUserId") String userId) {
+        return recommendationService.getChatHistory(userId);
     }
 
     @PostMapping
