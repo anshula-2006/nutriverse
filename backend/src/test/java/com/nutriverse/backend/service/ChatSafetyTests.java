@@ -6,14 +6,25 @@ import com.nutriverse.backend.repository.NutritionProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
+import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class ChatSafetyTests {
     private final ChatMemory memory = mock(ChatMemory.class);
@@ -82,6 +93,104 @@ class ChatSafetyTests {
                 new byte[0], StandardCharsets.UTF_8);
         Long delay = ReflectionTestUtils.invokeMethod(service, "getRetryDelay", error);
         assertTrue(delay >= 1000 && delay <= 5000);
+    }
+
+    @Test
+    void candidateRateLimitRetriesOnceThenReturnsSanitized429() {
+        MockRestServiceServer server = mockGroq();
+        server.expect(ExpectedCount.times(2), requestTo("https://groq.example/chat"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .header("Retry-After", "0").body("private provider details"));
+
+        ResponseStatusException error = assertTimeout(Duration.ofSeconds(8), () ->
+                assertThrows(ResponseStatusException.class,
+                        () -> service.generateFoodCandidates("owner", "high protein meal", List.of(), 6)));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatusCode());
+        assertEquals("Nutri is busy. Please try again shortly.", error.getReason());
+        server.verify();
+    }
+
+    @Test
+    void candidateHttpAndTransportFailuresReturnSanitized503() {
+        MockRestServiceServer server = mockGroq();
+        server.expect(requestTo("https://groq.example/chat"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).body("private provider details"));
+        ResponseStatusException unavailable = assertThrows(ResponseStatusException.class,
+                () -> service.generateFoodCandidates("owner", "high protein meal", List.of(), 6));
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, unavailable.getStatusCode());
+        assertEquals("Nutri is temporarily unavailable.", unavailable.getReason());
+        server.verify();
+
+        server.reset();
+        server.expect(requestTo("https://groq.example/chat"))
+                .andRespond(withException(new IOException("private connection details")));
+        ResponseStatusException offline = assertThrows(ResponseStatusException.class,
+                () -> service.generateFoodCandidates("owner", "high protein meal", List.of(), 6));
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, offline.getStatusCode());
+        assertEquals("Nutri is temporarily unavailable.", offline.getReason());
+        server.verify();
+    }
+
+    @Test
+    void malformedCandidateResponsesReturn502RatherThanFoodNames() {
+        for (String response : List.of("{}", "{\"choices\":[]}",
+                "{\"choices\":[{\"message\":{\"content\":\"\"}}]}", "not-json")) {
+            MockRestServiceServer server = mockGroq();
+            server.expect(requestTo("https://groq.example/chat"))
+                    .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+            ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                    () -> service.generateFoodCandidates("owner", "high protein meal", List.of(), 6));
+            assertEquals(HttpStatus.BAD_GATEWAY, error.getStatusCode(), response);
+            assertEquals("Nutri returned an invalid response. Please try again.", error.getReason());
+            server.verify();
+        }
+    }
+
+    @Test
+    void candidatePromptUsesSavedProfileAndFiltersModelNutritionNumbers() {
+        NutritionProfile profile = new NutritionProfile("owner");
+        profile.setAge(37);
+        profile.setHeight(168.0);
+        profile.setWeight(64.0);
+        profile.setGender("FEMALE");
+        profile.setActivityLevel("MODERATE");
+        profile.setDietType("VEGAN");
+        profile.setDietaryRestriction("GLUTEN_FREE");
+        profile.setGoal("WEIGHT_LOSS");
+        profile.setFoodPreferences("beans");
+        profile.setFoodDislikes("mushrooms");
+        when(profiles.findByUserId("owner")).thenReturn(Optional.of(profile));
+        MockRestServiceServer server = mockGroq();
+        server.expect(requestTo("https://groq.example/chat"))
+                .andExpect(content().string(containsString("Age: 37")))
+                .andExpect(content().string(containsString("Height cm: 168.0")))
+                .andExpect(content().string(containsString("Weight kg: 64.0")))
+                .andExpect(content().string(containsString("Gender: FEMALE")))
+                .andExpect(content().string(containsString("Activity: MODERATE")))
+                .andExpect(content().string(containsString("Diet: VEGAN")))
+                .andExpect(content().string(containsString("Dietary restriction: GLUTEN_FREE")))
+                .andExpect(content().string(containsString("Goal: WEIGHT_LOSS")))
+                .andExpect(content().string(containsString("Food preferences: beans")))
+                .andExpect(content().string(containsString("Food dislikes: mushrooms")))
+                .andRespond(withSuccess("""
+                        {"choices":[{"message":{"content":"Lentils\\nChickpeas\\nTofu 18g protein\\nRice contains eighteen grams of protein\\nProtein: 18 g"}}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertEquals(List.of("Lentils", "Chickpeas"),
+                service.generateFoodCandidates("owner", "high protein meal", List.of("Tofu"), 6));
+        verifyNoInteractions(lookup, memory, extraction);
+        server.verify();
+    }
+
+    private MockRestServiceServer mockGroq() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        ReflectionTestUtils.setField(service, "restClient", builder.build());
+        ReflectionTestUtils.setField(service, "apiKey", "test-key");
+        ReflectionTestUtils.setField(service, "apiUrl", "https://groq.example/chat");
+        ReflectionTestUtils.setField(service, "model", "test-model");
+        return server;
     }
 
     @Test

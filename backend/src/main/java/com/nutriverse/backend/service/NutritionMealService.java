@@ -6,6 +6,8 @@ import com.nutriverse.backend.model.MealLog;
 import com.nutriverse.backend.repository.MealLogRepository;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -54,9 +56,8 @@ public class NutritionMealService {
                 );
 
         if (food == null) {
-            throw new IllegalArgumentException(
-                    "Selected food could not be found"
-            );
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Selected food could not be retrieved from its source. Please search again.");
         }
 
         if (food.getServingSize() == null || !Double.isFinite(food.getServingSize())

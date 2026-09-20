@@ -11,16 +11,13 @@ public class ProfileUpdateRequest {
     @Max(value = 120, message = "Age must not exceed 120")
     private Integer age;
 
-
     @Min(value = 50, message = "Height must be at least 50 cm")
     @Max(value = 250, message = "Height must not exceed 250 cm")
     private Double height;
 
-
     @Min(value = 10, message = "Weight must be at least 10 kg")
     @Max(value = 500, message = "Weight must not exceed 500 kg")
     private Double weight;
-
 
     @Pattern(
             regexp = "MALE|FEMALE|OTHER",
@@ -28,13 +25,11 @@ public class ProfileUpdateRequest {
     )
     private String gender;
 
-
     @Pattern(
             regexp = "VEGETARIAN|VEGAN|NON_VEGETARIAN",
             message = "Invalid diet preference"
     )
     private String dietType;
-
 
     @Pattern(
             regexp = "SEDENTARY|LIGHTLY_ACTIVE|MODERATELY_ACTIVE|VERY_ACTIVE|EXTRA_ACTIVE",
@@ -42,20 +37,23 @@ public class ProfileUpdateRequest {
     )
     private String activityLevel;
 
-
     @Pattern(
             regexp = "WEIGHT_LOSS|WEIGHT_GAIN|MAINTENANCE|HEALTHY_EATING|FITNESS",
             message = "Invalid nutrition goal"
     )
     private String goal;
 
-
-    @Size(
-            max = 200,
-            message = "Food preferences must not exceed 200 characters"
-    )
+    @Size(max = 200, message = "Food preferences must not exceed 200 characters")
     private String foodPreferences;
 
+    @Size(max = 300, message = "Food dislikes must not exceed 300 characters")
+    private String foodDislikes;
+
+    @Pattern(
+            regexp = "GLUTEN_FREE|NONE",
+            message = "Dietary restriction must be GLUTEN_FREE or NONE"
+    )
+    private String dietaryRestriction;
 
     public Integer getAge() {
         return age;
@@ -65,7 +63,6 @@ public class ProfileUpdateRequest {
         this.age = age;
     }
 
-
     public Double getHeight() {
         return height;
     }
@@ -73,7 +70,6 @@ public class ProfileUpdateRequest {
     public void setHeight(Double height) {
         this.height = height;
     }
-
 
     public Double getWeight() {
         return weight;
@@ -83,7 +79,6 @@ public class ProfileUpdateRequest {
         this.weight = weight;
     }
 
-
     public String getGender() {
         return gender;
     }
@@ -91,7 +86,6 @@ public class ProfileUpdateRequest {
     public void setGender(String gender) {
         this.gender = gender;
     }
-
 
     public String getDietType() {
         return dietType;
@@ -101,7 +95,6 @@ public class ProfileUpdateRequest {
         this.dietType = dietType;
     }
 
-
     public String getActivityLevel() {
         return activityLevel;
     }
@@ -109,7 +102,6 @@ public class ProfileUpdateRequest {
     public void setActivityLevel(String activityLevel) {
         this.activityLevel = activityLevel;
     }
-
 
     public String getGoal() {
         return goal;
@@ -119,12 +111,27 @@ public class ProfileUpdateRequest {
         this.goal = goal;
     }
 
-
     public String getFoodPreferences() {
         return foodPreferences;
     }
 
     public void setFoodPreferences(String foodPreferences) {
         this.foodPreferences = foodPreferences;
+    }
+
+    public String getFoodDislikes() {
+        return foodDislikes;
+    }
+
+    public void setFoodDislikes(String foodDislikes) {
+        this.foodDislikes = foodDislikes;
+    }
+
+    public String getDietaryRestriction() {
+        return dietaryRestriction;
+    }
+
+    public void setDietaryRestriction(String dietaryRestriction) {
+        this.dietaryRestriction = dietaryRestriction;
     }
 }

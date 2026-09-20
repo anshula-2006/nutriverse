@@ -9,6 +9,10 @@ import com.nutriverse.backend.service.JwtService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,13 +27,16 @@ public class AuthController {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final MongoTemplate mongoTemplate;
 
     public AuthController(
             UserRepository userRepository,
-            JwtService jwtService) {
+            JwtService jwtService,
+            MongoTemplate mongoTemplate) {
 
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.mongoTemplate = mongoTemplate;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -41,13 +48,11 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "Password must not exceed 72 UTF-8 bytes"));
         }
 
+        // Idempotent and lazy: enforce uniqueness across concurrent registrations
+        // without making application startup depend on a database connection.
+        mongoTemplate.indexOps(User.class).createIndex(new Index().on("username", Sort.Direction.ASC).unique());
         if (userRepository.existsByUsername(request.getUsername())) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "message",
-                            "Username already exists"
-                    ));
+            return ResponseEntity.badRequest().body(Map.of("message", "Username already exists"));
         }
 
         String hashedPassword =
@@ -59,7 +64,12 @@ public class AuthController {
                 hashedPassword
         );
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+        } catch (DuplicateKeyException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Username already exists"));
+        }
 
         return ResponseEntity.ok(
                 Map.of(

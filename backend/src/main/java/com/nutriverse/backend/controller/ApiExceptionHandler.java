@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +34,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<?> invalidRequest(Exception exception) {
         return ResponseEntity.badRequest().body(Map.of("message", "Invalid request values or JSON"));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<?> missingParameter(MissingServletRequestParameterException exception) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("message", "Missing required parameter: " + exception.getParameterName()));
     }
 
     @ExceptionHandler(DataAccessException.class)

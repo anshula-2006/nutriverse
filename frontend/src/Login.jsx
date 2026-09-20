@@ -36,7 +36,9 @@ function Login() {
       navigate("/dashboard");
 
     } catch (error) {
-      setMessage(error.message || "Could not connect to the server. Please try again.");
+      setMessage(error instanceof TypeError
+        ? "Could not connect to the server. Please try again."
+        : error.message || "Could not sign in. Please try again.");
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

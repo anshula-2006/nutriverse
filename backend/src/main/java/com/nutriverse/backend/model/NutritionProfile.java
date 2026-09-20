@@ -22,26 +22,27 @@ public class NutritionProfile {
     private String activityLevel;
     private String goal;
     private String foodPreferences;
+    private String foodDislikes;
+
+    // Primary medical/dietary focus
+    // CELIAC -> stored as GLUTEN_FREE dietary restriction.
+    private String dietaryRestriction;
 
     // Backend-calculated daily targets
     private Integer dailyCalorieTarget;
     private Integer dailyProteinTarget;
     private Double dailyWaterTarget;
 
-
     public NutritionProfile() {
     }
-
 
     public NutritionProfile(String userId) {
         this.userId = userId;
     }
 
-
     public String getId() {
         return id;
     }
-
 
     public String getUserId() {
         return userId;
@@ -51,7 +52,6 @@ public class NutritionProfile {
         this.userId = userId;
     }
 
-
     public Integer getAge() {
         return age;
     }
@@ -59,7 +59,6 @@ public class NutritionProfile {
     public void setAge(Integer age) {
         this.age = age;
     }
-
 
     public Double getHeight() {
         return height;
@@ -69,7 +68,6 @@ public class NutritionProfile {
         this.height = height;
     }
 
-
     public Double getWeight() {
         return weight;
     }
@@ -77,7 +75,6 @@ public class NutritionProfile {
     public void setWeight(Double weight) {
         this.weight = weight;
     }
-
 
     public String getGender() {
         return gender;
@@ -87,7 +84,6 @@ public class NutritionProfile {
         this.gender = gender;
     }
 
-
     public String getDietType() {
         return dietType;
     }
@@ -95,7 +91,6 @@ public class NutritionProfile {
     public void setDietType(String dietType) {
         this.dietType = dietType;
     }
-
 
     public String getActivityLevel() {
         return activityLevel;
@@ -105,7 +100,6 @@ public class NutritionProfile {
         this.activityLevel = activityLevel;
     }
 
-
     public String getGoal() {
         return goal;
     }
@@ -113,7 +107,6 @@ public class NutritionProfile {
     public void setGoal(String goal) {
         this.goal = goal;
     }
-
 
     public String getFoodPreferences() {
         return foodPreferences;
@@ -123,6 +116,21 @@ public class NutritionProfile {
         this.foodPreferences = foodPreferences;
     }
 
+    public String getFoodDislikes() {
+        return foodDislikes;
+    }
+
+    public void setFoodDislikes(String foodDislikes) {
+        this.foodDislikes = foodDislikes;
+    }
+
+    public String getDietaryRestriction() {
+        return dietaryRestriction;
+    }
+
+    public void setDietaryRestriction(String dietaryRestriction) {
+        this.dietaryRestriction = dietaryRestriction;
+    }
 
     public Integer getDailyCalorieTarget() {
         return dailyCalorieTarget;
@@ -132,7 +140,6 @@ public class NutritionProfile {
         this.dailyCalorieTarget = dailyCalorieTarget;
     }
 
-
     public Integer getDailyProteinTarget() {
         return dailyProteinTarget;
     }
@@ -140,7 +147,6 @@ public class NutritionProfile {
     public void setDailyProteinTarget(Integer dailyProteinTarget) {
         this.dailyProteinTarget = dailyProteinTarget;
     }
-
 
     public Double getDailyWaterTarget() {
         return dailyWaterTarget;

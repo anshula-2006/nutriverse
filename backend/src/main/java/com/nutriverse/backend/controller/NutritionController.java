@@ -39,7 +39,11 @@ public class NutritionController {
     public NutritionResult barcode(
             @PathVariable String barcode) {
 
-        return lookupService.findByBarcode(barcode);
+        NutritionResult result = lookupService.findByBarcode(barcode);
+        if (result == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No nutrition record was found for this barcode");
+        }
+        return result;
     }
 
     @GetMapping("/food")

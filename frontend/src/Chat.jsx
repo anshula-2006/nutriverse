@@ -12,12 +12,16 @@ const suggestions = [
   ["🌱", "Fiber meal", "Suggest a high-fiber meal"]
 ];
 const hasAny = (text, words) => words.some(word => text.includes(word));
-function isRecommendationPrompt(text) {
+const FOLLOW_UP = /\b(?:other|another|more|different|else)\b/;
+const MEAL_IDEAS = /\b(?:meals|dishes|ideas)\b/;
+function isRecommendationPrompt(text, previousWasChatReply = false) {
   const value = text.toLowerCase();
   if (hasAny(value, [
     "don't have", "dont have", "do not have", "not available", "without ",
     "exclude ", "avoid ", "instead of ", "alternative", "swap"
   ])) return true;
+  // "suggest any other meals" after Nutri gave recipes is a request for more recipes, not for single foods.
+  if (FOLLOW_UP.test(value) && (previousWasChatReply || MEAL_IDEAS.test(value))) return false;
   if (hasAny(value, ["recipe", "plan my meal", "plan my meals"])) return false;
   return hasAny(value, [
     "recommend", "suggest", "give me", "what should i eat", "what can i eat", "i need", "i want"
@@ -62,7 +66,9 @@ function Chat() {
     setTypingText("Nutri is typing...");
     timerRef.current = window.setTimeout(() => setTypingText("Nutri is thinking..."), 5000);
     try {
-      const recommendation = !foodContext && isRecommendationPrompt(userMessage);
+      const lastReply = [...messages].reverse().find(item => item.role === "assistant");
+      const previousWasChatReply = Boolean(lastReply && !lastReply.recommendation);
+      const recommendation = !foodContext && isRecommendationPrompt(userMessage, previousWasChatReply);
       const endpoint = recommendation ? "/api/recommendations" : "/api/chat";
       const body = recommendation
         ? { request: userMessage }
@@ -80,9 +86,11 @@ function Chat() {
         return;
       }
       const data = await response.json();
-      if (recommendation) {
-        const reply = Array.isArray(data?.recommendations) && data.recommendations.length
-          ? { role: "assistant", recommendation: data }
+      const structured = data?.recommendation ?? data;
+      if (recommendation || data?.recommendation || Array.isArray(data?.recommendations)) {
+        const items = recommendationItems(structured);
+        const reply = items.length
+          ? { role: "assistant", recommendation: { ...structured, recommendations: items } }
           : { role: "assistant", content: "I couldn't find a verified USDA-backed recommendation for that request." };
         setMessages(prev => [...prev, reply]);
         return;
@@ -171,21 +179,27 @@ function Chat() {
     </div>
   );
 }
+function recommendationItems(data) {
+  return Array.isArray(data?.recommendations)
+    ? data.recommendations.filter(item => item && typeof item.what === "string" && item.what.trim())
+    : [];
+}
 function RecommendationCards({ data }) {
   return <div className="recommendation-results">
     <div className="recommendation-heading">
       <div><strong>Evidence-aware recommendations</strong><p>Personalized using your request and saved profile.</p></div>
       <span className="recommendation-method">Structured Evidence</span>
     </div>
-    {data.recommendations.map((item, index) =>
-      <div className="recommendation-card" key={item.evidence?.sourceId || index}>
+    {recommendationItems(data).map((item, index) =>
+      <div className="recommendation-card" key={`${item.evidence?.source || "food"}:${item.evidence?.sourceId || index}:${index}`}>
         <div className="recommendation-title">
           <span className="recommendation-number">{index + 1}</span>
           <div><small>RECOMMENDATION</small><h3>{item.what}</h3></div>
         </div>
         <div className="recommendation-section">
           <strong>Why?</strong>
-          {item.why?.map((reason, i) => <p key={i} className="recommendation-why">✓ {reason}</p>)}
+          {(Array.isArray(item.why) ? item.why : []).filter(reason => typeof reason === "string" && reason.trim())
+            .map((reason, i) => <p key={i} className="recommendation-why">✓ {reason}</p>)}
         </div>
         <div className="recommendation-section">
           <strong>Evidence</strong>
@@ -196,9 +210,12 @@ function RecommendationCards({ data }) {
             <EvidenceValue label="Reference" value={item.evidence?.servingSize} unit={item.evidence?.servingUnit} />
           </div>
         </div>
-        <div className="recommendation-section"><strong>Reason</strong><p>{item.reason}</p></div>
+        {typeof item.reason === "string" && item.reason.trim() &&
+          <div className="recommendation-section"><strong>Reason</strong><p>{item.reason}</p></div>}
         <div className="recommendation-source">
-          <span>✓ Verified source</span><span>{item.evidence?.source}</span>
+          {item.evidence?.verified === true && item.evidence?.source && item.evidence?.sourceId
+            ? <span>✓ Verified source</span> : <span>Source verification unavailable</span>}
+          <span>{item.evidence?.source}</span>
           {item.evidence?.sourceId && <span>FDC ID: {item.evidence.sourceId}</span>}
           {item.evidence?.dataType && <span>{item.evidence.dataType}</span>}
         </div>
@@ -208,9 +225,10 @@ function RecommendationCards({ data }) {
 }
 function EvidenceValue({ label, value, unit }) {
   const number = Number(value);
-  const shown = value == null || !Number.isFinite(number) ? "N/A" : Math.round(number * 100) / 100;
+  const available = value != null && value !== "" && Number.isFinite(number);
+  const shown = available ? Math.round(number * 100) / 100 : "N/A";
   return <div className="recommendation-evidence-value">
-    <small>{label}</small><strong>{shown} {value == null ? "" : unit}</strong>
+    <small>{label}</small><strong>{shown} {available ? unit : ""}</strong>
   </div>;
 }
 function FormatText({ text = "" }) {

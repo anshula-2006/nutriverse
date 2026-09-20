@@ -20,6 +20,7 @@ function Register() {
     submittingRef.current = true;
     setSubmitting(true);
     setMessage("");
+    let accountCreated = false;
 
     try {
       const response = await fetch(
@@ -36,6 +37,7 @@ function Register() {
       );
 
       await readResponse(response, "Registration failed");
+      accountCreated = true;
 
       const loginResponse = await fetch(
         `${API_URL}/api/auth/login`,
@@ -55,7 +57,11 @@ function Register() {
       navigate("/dashboard");
 
     } catch (error) {
-      setMessage(error.message || "Could not connect to the server. Please try again.");
+      setMessage(accountCreated
+        ? "Your account was created, but automatic sign-in failed. Please use the Sign in link below."
+        : error instanceof TypeError
+          ? "Could not connect to the server. Please try again."
+          : error.message || "Registration failed. Please try again.");
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

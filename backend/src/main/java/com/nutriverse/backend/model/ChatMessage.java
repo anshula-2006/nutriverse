@@ -1,5 +1,6 @@
 package com.nutriverse.backend.model;
 
+import com.nutriverse.backend.dto.RecommendationResponse;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -15,6 +16,8 @@ public class ChatMessage {
     private String role;
     private String content;
     private Instant timestamp;
+    private String recommendationRequest;
+    private RecommendationResponse recommendation;
 
     public ChatMessage() {
     }
@@ -60,5 +63,21 @@ public class ChatMessage {
 
     public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getRecommendationRequest() {
+        return recommendationRequest;
+    }
+
+    public void setRecommendationRequest(String recommendationRequest) {
+        this.recommendationRequest = recommendationRequest;
+    }
+
+    public RecommendationResponse getRecommendation() {
+        return recommendation;
+    }
+
+    public void setRecommendation(RecommendationResponse recommendation) {
+        this.recommendation = recommendation;
     }
 }

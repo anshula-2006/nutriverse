@@ -8,6 +8,7 @@ import com.nutriverse.backend.dto.ProfileUpdateRequest;
 import com.nutriverse.backend.model.User;
 import com.nutriverse.backend.model.WaterLog;
 import com.nutriverse.backend.repository.FoodNodeRepository;
+import com.nutriverse.backend.repository.MealLogRepository;
 import com.nutriverse.backend.repository.UserRepository;
 import com.nutriverse.backend.service.*;
 import io.jsonwebtoken.Claims;
@@ -17,6 +18,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.IndexDefinition;
+import org.springframework.data.mongodb.core.index.IndexOperations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -52,7 +57,7 @@ class SecurityRegressionTests {
         mvc = MockMvcBuilders.standaloneSetup(
                         new DashboardController(dashboard), new MealLogController(meals),
                         new WaterLogController(water), new NutritionProfileController(profiles),
-                        new NutritionController(lookup, nutritionMeals), new ChatController(groq),
+                        new NutritionController(lookup, nutritionMeals), new ChatController(groq, mock(RecommendationService.class)),
                         new KnowledgeGraphController(graph))
                 .addInterceptors(new JwtAuthenticationInterceptor(jwt))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
@@ -174,14 +179,55 @@ class SecurityRegressionTests {
     }
 
     @Test
+    void nutritionErrorsDistinguishMissingParametersAndMissingRecords() throws Exception {
+        mvc.perform(get("/api/nutrition/search").header("Authorization", authorization))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Missing required parameter: query"));
+        mvc.perform(get("/api/nutrition/food").param("source", "USDA")
+                        .header("Authorization", authorization))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Missing required parameter: sourceId"));
+        verifyNoInteractions(lookup);
+
+        mvc.perform(get("/api/nutrition/barcode/123").header("Authorization", authorization))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No nutrition record was found for this barcode"));
+        mvc.perform(get("/api/nutrition/food").param("source", "USDA").param("sourceId", "123")
+                        .header("Authorization", authorization))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Selected food could not be retrieved from its source"));
+    }
+
+    @Test
+    void missingSelectedFoodReturnsNotFoundWithoutSavingMeal() throws Exception {
+        MealLogRepository repository = mock(MealLogRepository.class);
+        MockMvc nutrition = MockMvcBuilders.standaloneSetup(new NutritionController(lookup,
+                        new NutritionMealService(lookup, repository)))
+                .addInterceptors(new JwtAuthenticationInterceptor(jwt))
+                .setControllerAdvice(new ApiExceptionHandler()).build();
+
+        nutrition.perform(post("/api/nutrition/log-meal").header("Authorization", authorization)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mealType\":\"LUNCH\",\"source\":\"USDA FoodData Central\","
+                                + "\"sourceId\":\"123\",\"quantityGrams\":100}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value(
+                        "Selected food could not be retrieved from its source. Please search again."));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void registrationHashesPasswordAndLoginIssuesUsableJwtWithoutExposingHash() throws Exception {
         UserRepository users = mock(UserRepository.class);
+        MongoTemplate database = mock(MongoTemplate.class);
+        IndexOperations indexes = mock(IndexOperations.class);
+        when(database.indexOps(User.class)).thenReturn(indexes);
         when(users.save(any(User.class))).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setId("new-user");
             return saved;
         });
-        MockMvc auth = MockMvcBuilders.standaloneSetup(new AuthController(users, jwt))
+        MockMvc auth = MockMvcBuilders.standaloneSetup(new AuthController(users, jwt, database))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
         auth.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Test User\",\"username\":\"test-user\",\"password\":\"Test-password-123\",\"role\":\"ADMIN\"}"))
@@ -205,5 +251,49 @@ class SecurityRegressionTests {
         auth.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"test-user\",\"password\":\"wrong-password\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void concurrentDuplicateSignupUsesUniqueIndexAndReturnsExistingUsernameError() throws Exception {
+        UserRepository users = mock(UserRepository.class);
+        MongoTemplate database = mock(MongoTemplate.class);
+        IndexOperations indexes = mock(IndexOperations.class);
+        when(database.indexOps(User.class)).thenReturn(indexes);
+        // Another request inserts the username after this request's existence check.
+        when(users.save(any(User.class))).thenThrow(new DuplicateKeyException("internal database details"));
+        MockMvc auth = MockMvcBuilders.standaloneSetup(new AuthController(users, jwt, database))
+                .setControllerAdvice(new ApiExceptionHandler()).build();
+
+        auth.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Test User\",\"username\":\"test-user\",\"password\":\"Test-password-123\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Username already exists"));
+        var order = inOrder(indexes, users);
+        ArgumentCaptor<IndexDefinition> index = ArgumentCaptor.forClass(IndexDefinition.class);
+        order.verify(indexes).createIndex(index.capture());
+        order.verify(users).existsByUsername("test-user");
+        order.verify(users).save(any(User.class));
+        assertEquals(1, index.getValue().getIndexKeys().get("username"));
+        assertEquals(Boolean.TRUE, index.getValue().getIndexOptions().get("unique"));
+    }
+
+    @Test
+    void legacyDuplicatesPreventRegistrationWithoutExposingDatabaseDetails() throws Exception {
+        UserRepository users = mock(UserRepository.class);
+        MongoTemplate database = mock(MongoTemplate.class);
+        IndexOperations indexes = mock(IndexOperations.class);
+        when(database.indexOps(User.class)).thenReturn(indexes);
+        when(indexes.createIndex(any(IndexDefinition.class)))
+                .thenThrow(new DuplicateKeyException("legacy duplicate username with internal details"));
+        MockMvc auth = MockMvcBuilders.standaloneSetup(new AuthController(users, jwt, database))
+                .setControllerAdvice(new ApiExceptionHandler()).build();
+
+        auth.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Test User\",\"username\":\"test-user\",\"password\":\"Test-password-123\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.message").value("Data service unavailable. Please try again shortly."));
+        verifyNoInteractions(users);
+        verify(indexes, never()).dropAllIndexes();
+        verify(indexes, never()).dropIndex(anyString());
     }
 }
