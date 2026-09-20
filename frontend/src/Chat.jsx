@@ -70,6 +70,7 @@ function Chat() {
   const [messages, setMessages] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [typingText, setTypingText] = useState("Nutri is typing...");
   const endRef = useRef(null), sendingRef = useRef(false), timerRef = useRef(null);
   useEffect(() => { if (!token) navigate("/login", { replace: true }); }, [navigate, token]);
@@ -160,6 +161,33 @@ function Chat() {
       setIsSending(false);
     }
   }
+  async function deleteChat() {
+    if (isDeleting || isSending || historyLoading || messages.length === 0) return;
+    if (!window.confirm("Delete your entire chat history? This cannot be undone.")) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (handleUnauthorized(response, navigate)) return;
+      if (!response.ok) {
+        window.alert("Could not delete your chat history. Please try again.");
+        return;
+      }
+
+      setMessages([]);
+      setFoodContext(null);
+      setMessage("");
+    } catch {
+      window.alert("Could not connect to the backend. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
   function handleKey(event) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -172,7 +200,13 @@ function Chat() {
       <main className="chat-main">
         <header className="chat-header">
           <div><h2>Nutri AI Assistant 🌱</h2><p>Evidence-aware personalized nutrition guidance</p></div>
-          <span className="chat-online">● Online</span>
+          <div className="chat-header-actions">
+            <span className="chat-online">● Online</span>
+            <button className="chat-delete" type="button" onClick={deleteChat}
+              disabled={isDeleting || isSending || historyLoading || messages.length === 0}>
+              {isDeleting ? "Deleting..." : "Delete chat"}
+            </button>
+          </div>
         </header>
         {foodContext && <div className="chat-food-context">
           <span>Selected food: {foodContext.foodName}. Nutrition facts will be retrieved from its exact source record.</span>

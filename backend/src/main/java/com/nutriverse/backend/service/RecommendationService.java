@@ -96,6 +96,10 @@ public class RecommendationService {
                 .toList();
     }
 
+    public long clearChatHistory(String userId) {
+        return chatMemory.clearHistory(userId);
+    }
+
     public RecommendationResponse recommend(
             String userId,
             String request

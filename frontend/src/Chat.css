@@ -89,6 +89,34 @@
   white-space: nowrap;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.chat-delete {
+  padding: 7px 12px;
+  border: 1px solid #d8aaa5;
+  border-radius: 20px;
+  background: #fff7f6;
+  color: #994b43;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chat-delete:hover:not(:disabled) {
+  background: #fbe7e4;
+}
+
+.chat-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
 /* =========================================================
    SELECTED FOOD
