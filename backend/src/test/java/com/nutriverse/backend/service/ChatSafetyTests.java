@@ -82,8 +82,9 @@ class ChatSafetyTests {
     @Test
     void naturalConfirmationContinuesTheLatestAssistantOffer() {
         List<Map<String, String>> history = List.of(
-                Map.of("role", "user", "I feel like eating something unhealthy"),
-                Map.of("role", "assistant", "Tell me which treat you are craving and I can suggest an alternative.")
+                Map.of("role", "user", "content", "I feel like eating something unhealthy"),
+                Map.of("role", "assistant", "content",
+                        "Tell me which treat you are craving and I can suggest an alternative.")
         );
 
         String resolved = ReflectionTestUtils.invokeMethod(
@@ -96,7 +97,7 @@ class ChatSafetyTests {
     @Test
     void oneWordSnackAnswerKeepsSafeQualitativeSuggestions() {
         when(memory.getHistory("owner")).thenReturn(List.of(
-                Map.of("role", "assistant", "What kind of snack are you thinking of?")
+                Map.of("role", "assistant", "content", "What kind of snack are you thinking of?")
         ));
         MockRestServiceServer server = mockGroq();
         server.expect(requestTo("https://groq.example/chat"))
