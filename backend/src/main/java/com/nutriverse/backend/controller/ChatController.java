@@ -8,6 +8,7 @@ import com.nutriverse.backend.service.RecommendationService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,13 @@ public class ChatController {
     public List<ChatHistoryItem> history(
             @RequestAttribute("authenticatedUserId") String userId) {
         return recommendationService.getChatHistory(userId);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> clearHistory(
+            @RequestAttribute("authenticatedUserId") String userId) {
+        recommendationService.clearChatHistory(userId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping

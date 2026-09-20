@@ -146,6 +146,16 @@ class RecommendationConversationTests {
     }
 
     @Test
+    void deletingHistoryUsesOnlyTheAuthenticatedConversationId() {
+        when(messages.deleteByConversationId("owner")).thenReturn(6L);
+
+        assertEquals(6L, service().clearChatHistory("owner"));
+
+        verify(messages).deleteByConversationId("owner");
+        verify(messages, never()).deleteByConversationId("someone-else");
+    }
+
+    @Test
     void lowProteinFoodsDoNotPassTheProteinFocusedFilter() {
         when(candidates.generateFoodCandidates(anyString(), anyString(), anyCollection(), anyInt()))
                 .thenReturn(List.of("idli", "tofu"));
