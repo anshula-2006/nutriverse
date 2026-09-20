@@ -96,7 +96,7 @@ class RecommendationConversationTests {
             assertEquals("WEIGHT_LOSS", response.getInterpretedGoal());
             assertEquals(3, response.getRecommendations().size());
             for (var item : response.getRecommendations()) {
-                assertTrue(item.getReason().contains("high-protein"));
+                assertTrue(item.getReason().contains("protein-focused filter"));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("vegetarian")));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("weight loss")));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("gluten")));
@@ -131,7 +131,8 @@ class RecommendationConversationTests {
         RecommendationResponse next = service().recommend("owner", followup);
         assertEquals(3, next.getRecommendations().size());
         assertTrue(Collections.disjoint(ids(first), ids(next)));
-        assertTrue(next.getRecommendations().stream().allMatch(item -> item.getReason().contains("high-protein")));
+        assertTrue(next.getRecommendations().stream()
+                .allMatch(item -> item.getReason().contains("protein-focused filter")));
         assertTrue(service().isStructuredFollowup("owner", followup));
     }
 
