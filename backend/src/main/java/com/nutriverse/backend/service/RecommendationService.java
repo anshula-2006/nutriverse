@@ -787,27 +787,26 @@ public class RecommendationService {
         return result;
     }
 
-    private boolean matchesAny(
-            String candidate,
-            Collection<String> excluded
-    ) {
-        for (String value : excluded) {
+private boolean matchesAny(
+        String candidate,
+        Collection<String> excluded
+) {
+    String normalizedCandidate = " " + normalize(candidate) + " ";
 
-            String blocked =
-                    normalize(value);
+    for (String value : excluded) {
 
-            if (blocked.isBlank())
-                continue;
+        String blocked = normalize(value);
 
-            if (candidate.contains(blocked)
-                    || blocked.contains(candidate)) {
-                return true;
-            }
+        if (blocked.isBlank())
+            continue;
+
+        if (normalizedCandidate.contains(" " + blocked + " ")) {
+            return true;
         }
-
-        return false;
     }
 
+    return false;
+}
     private boolean containsAnyWord(
             String value,
             Collection<String> words

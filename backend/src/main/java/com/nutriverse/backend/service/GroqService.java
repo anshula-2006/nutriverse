@@ -128,7 +128,7 @@ public class GroqService {
     );
 
     private static final Pattern CELIAC_SAFETY_CLAIM = Pattern.compile(
-            "(?i)\\b(?:gluten[- ]?free|celiac[- ]?safe|safe for celiac|safe for celiac)\\b"
+            "(?i)\\b(?:gluten[- ]?free|celiac[- ]?safe|safe for celiac|safe for coeliac)\\b"
     );
 
     private final ChatMemory chatMemory;
