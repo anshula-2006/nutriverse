@@ -58,6 +58,14 @@ public class ChatMemory {
                 .toList();
     }
 
+    public long clearHistory(String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) {
+            return 0;
+        }
+
+        return chatMessageRepository.deleteByConversationId(conversationId);
+    }
+
     public void addRecommendation(String conversationId, String request, String resolvedRequest,
                                   RecommendationResponse response) {
         addMessage(conversationId, "user", request);

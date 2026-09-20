@@ -74,6 +74,44 @@ class ChatSafetyTests {
         }
         assertEquals("Beans can be a protein-containing option.",
                 ReflectionTestUtils.invokeMethod(service, "guardQualitativeReply", "Beans can be a protein-containing option."));
+        String numberedIdeas = "1. Try baked potato chips.\n2. Try roasted makhana.\nBake until crisp.";
+        assertEquals(numberedIdeas,
+                ReflectionTestUtils.invokeMethod(service, "guardQualitativeReply", numberedIdeas));
+    }
+
+    @Test
+    void naturalConfirmationContinuesTheLatestAssistantOffer() {
+        List<Map<String, String>> history = List.of(
+                Map.of("role", "user", "I feel like eating something unhealthy"),
+                Map.of("role", "assistant", "Tell me which treat you are craving and I can suggest an alternative.")
+        );
+
+        String resolved = ReflectionTestUtils.invokeMethod(
+                service, "resolveFollowup", history, "Yes, I'd like that");
+
+        assertNotNull(resolved);
+        assertTrue(resolved.contains("accepted your most recent offer"));
+    }
+
+    @Test
+    void oneWordSnackAnswerKeepsSafeQualitativeSuggestions() {
+        when(memory.getHistory("owner")).thenReturn(List.of(
+                Map.of("role", "assistant", "What kind of snack are you thinking of?")
+        ));
+        MockRestServiceServer server = mockGroq();
+        server.expect(requestTo("https://groq.example/chat"))
+                .andExpect(content().string(containsString("chips")))
+                .andRespond(withSuccess("""
+                        {"choices":[{"message":{"content":"1. Try baked potato chips.\\n2. Try roasted makhana."}}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        String answer = service.getReply("owner", "chips");
+
+        assertTrue(answer.contains("baked potato chips"));
+        assertFalse(answer.contains("don't have verified nutrition values"));
+        verify(memory).addMessage("owner", "user", "chips");
+        verify(memory).addMessage("owner", "assistant", answer);
+        server.verify();
     }
 
     @Test

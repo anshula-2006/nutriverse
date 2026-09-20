@@ -30,6 +30,7 @@ class BackendApplicationTests {
                 "/api/kg/foods", "/api/nutrition/search?query=banana", "/api/dashboard;version=1"}) {
             mvc.perform(get(path)).andExpect(status().isUnauthorized());
         }
+        mvc.perform(delete("/api/chat")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/register").contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/auth/login").contentType("application/json").content("{}"))
@@ -38,6 +39,11 @@ class BackendApplicationTests {
                         .header("Access-Control-Request-Method", "PATCH")
                         .header("Access-Control-Request-Headers", "authorization,content-type"))
                 .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+        mvc.perform(options("/api/chat").header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "DELETE")
+                        .header("Access-Control-Request-Headers", "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
         mvc.perform(options("/api/profile").header("Origin", "https://untrusted.example")
                         .header("Access-Control-Request-Method", "PATCH"))
                 .andExpect(status().isForbidden());

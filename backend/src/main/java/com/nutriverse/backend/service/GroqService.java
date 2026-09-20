@@ -91,7 +91,21 @@ public class GroqService {
     );
 
     private static final Pattern CONFIRMATION = Pattern.compile(
-            "^\\s*(?:yes|yes please|sure|okay|ok|please do|go ahead)\\s*[.!]?\\s*$",
+            "^(?:yes(?: please| i'd (?:like|love) that| i would (?:like|love) that)?|"
+                    + "sure|okay|ok|please do|go ahead|sounds good|that sounds good)$",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final String NUMBER_VALUE =
+            "(?:\\p{N}+(?:[.,]\\p{N}+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+                    + "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+                    + "nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+                    + "hundred|thousand|half|quarter|dozen)";
+
+    private static final Pattern UNSUPPORTED_NUTRITION_NUMBER = Pattern.compile(
+            NUMBER_VALUE + ".{0,30}\\b(?:" + NUTRIENT_WORDS
+                    + "|g|mg|mcg|kcal|grams?|milligrams?)\\b"
+                    + "|\\b(?:" + NUTRIENT_WORDS + ")\\b.{0,30}" + NUMBER_VALUE,
             Pattern.CASE_INSENSITIVE
     );
 
@@ -394,9 +408,16 @@ public class GroqService {
         if (history == null || history.isEmpty())
             return message;
 
-        if (CONFIRMATION.matcher(message).matches()) {
+        if (CONFIRMATION.matcher(normalize(message)).matches()) {
             String previous = findPreviousRelevantUserRequest(history);
-            return previous == null ? message : previous;
+            if (previous != null) {
+                return previous;
+            }
+
+            return hasRecentAssistantReply(history)
+                    ? "The user accepted your most recent offer. Continue that offer now. "
+                    + "If one choice is still needed, ask only for that choice."
+                    : message;
         }
 
         if (isAlternativeFollowup(message)
@@ -411,6 +432,23 @@ public class GroqService {
         }
 
         return message;
+    }
+
+    private boolean hasRecentAssistantReply(
+            List<Map<String, String>> history
+    ) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            Map<String, String> item = history.get(i);
+            String content = item.get("content");
+
+            if (content == null || content.isBlank()) {
+                continue;
+            }
+
+            return "assistant".equals(item.get("role"));
+        }
+
+        return false;
     }
 
     static boolean isAlternativeFollowup(String message) {
@@ -1053,7 +1091,9 @@ public class GroqService {
 
     private String guardQualitativeReply(String reply) {
 
-        if (UNSUPPORTED_NUMBER.matcher(reply).find()
+        String safetyText = reply.replaceAll("(?m)^\\s*\\d+[.)]\\s*", "");
+
+        if (UNSUPPORTED_NUTRITION_NUMBER.matcher(safetyText).find()
                 || SOURCE_CLAIM.matcher(reply).find()) {
 
             log.warn(
@@ -1506,6 +1546,10 @@ public class GroqService {
                 - If the user asks for other, another, more or different suggestions,
                   continue the most recent recommendation request from chat history.
                 - Do not repeat recommendation names already visible in recent chat history.
+                - When the user accepts or answers your latest offer with a short reply,
+                  continue from that recent context instead of treating it as unrelated.
+                - For cravings or less nutritious foods, offer practical alternatives or
+                  moderation ideas without moralizing or refusing ordinary food guidance.
                 - Never invent allergies, diseases or explanation reasons.
                 - Do not make disease-treatment claims.
 
