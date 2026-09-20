@@ -7,7 +7,7 @@ export default function AppNav({ name }) {
 
   function logout() {
     clearSession();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   }
 
   return (

@@ -177,9 +177,12 @@ public class UsdaFoodDataProvider implements NutritionProvider {
 
         result.setServingSize(100.0);
         result.setServingUnit("g");
+
         result.setSource("USDA FoodData Central");
         result.setSourceType("AUTHORITATIVE_DATABASE");
         result.setSourceId(fdcId);
+        result.setDataType(dataType);
+
         result.setVerified(true);
         result.setEstimated(false);
 
@@ -232,25 +235,14 @@ public class UsdaFoodDataProvider implements NutritionProvider {
 
     private boolean hasPer100GramValues(
             Map<?, ?> food,
-            String dataType) {
+            String dataType
+    ) {
 
-        if ("Foundation".equalsIgnoreCase(dataType) ||
-                "SR Legacy".equalsIgnoreCase(dataType) ||
-                "Survey (FNDDS)".equalsIgnoreCase(dataType)) {
-            return true;
-        }
-
-        if (!"Branded".equalsIgnoreCase(dataType)) {
-            return false;
-        }
-
-        String unit = text(food.get("servingSizeUnit"));
-        return "g".equalsIgnoreCase(unit) ||
-                "gram".equalsIgnoreCase(unit) ||
-                "grams".equalsIgnoreCase(unit) ||
-                "GRM".equalsIgnoreCase(unit);
+        return "Foundation".equalsIgnoreCase(dataType)
+                || "SR Legacy".equalsIgnoreCase(dataType)
+                || "Survey (FNDDS)".equalsIgnoreCase(dataType);
     }
-
+    
     private boolean hasUsefulNutrition(NutritionResult result) {
         return result.getCalories() != null ||
                 result.getProtein() != null ||

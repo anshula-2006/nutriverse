@@ -1,4 +1,4 @@
-export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/+$/, "");
+export const API_URL = (import.meta.env.VITE_API_URL || "http://192.168.1.6:8080").replace(/\/+$/, "");
 
 // Stored user details are for display only. The server identifies users from JWTs.
 export function readUser() {

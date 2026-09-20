@@ -11,18 +11,19 @@ public class NutritionProfile {
 
     private String userId;
 
-    // Basic health details
+    // User profile
     private Integer age;
     private Double height;
     private Double weight;
     private String gender;
-    private String dietType;
 
-    // Lifestyle and goal
+    // Nutrition preferences
+    private String dietType;
     private String activityLevel;
     private String goal;
+    private String foodPreferences;
 
-    // Daily nutrition targets
+    // Backend-calculated daily targets
     private Integer dailyCalorieTarget;
     private Integer dailyProteinTarget;
     private Double dailyWaterTarget;
@@ -31,13 +32,7 @@ public class NutritionProfile {
     public NutritionProfile() {
     }
 
-    public String getDietType() {
-        return dietType;
-    }
 
-    public void setDietType(String dietType) {
-        this.dietType = dietType;
-    }
     public NutritionProfile(String userId) {
         this.userId = userId;
     }
@@ -93,6 +88,15 @@ public class NutritionProfile {
     }
 
 
+    public String getDietType() {
+        return dietType;
+    }
+
+    public void setDietType(String dietType) {
+        this.dietType = dietType;
+    }
+
+
     public String getActivityLevel() {
         return activityLevel;
     }
@@ -108,6 +112,15 @@ public class NutritionProfile {
 
     public void setGoal(String goal) {
         this.goal = goal;
+    }
+
+
+    public String getFoodPreferences() {
+        return foodPreferences;
+    }
+
+    public void setFoodPreferences(String foodPreferences) {
+        this.foodPreferences = foodPreferences;
     }
 
 

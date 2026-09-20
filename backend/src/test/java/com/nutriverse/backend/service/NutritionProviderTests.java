@@ -93,13 +93,60 @@ class NutritionProviderTests {
     }
 
     @Test
-    void usdaRejectsMissingIdsAndVolumeBasedBrandedFoods() {
-        RestClient.Builder builder = RestClient.builder().baseUrl("https://usda.example");
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        String noId = SEARCH_FOOD.replace("\"fdcId\":173944", "\"fdcId\":0");
-        String liquid = SEARCH_FOOD.replace("\"SR Legacy\"", "\"Branded\",\"servingSizeUnit\":\"ml\"");
-        server.expect(anything()).andRespond(withSuccess("{\"foods\":[" + noId + "," + liquid + "]}", MediaType.APPLICATION_JSON));
-        assertTrue(new UsdaFoodDataProvider(builder.build(), "test-key").search("banana").isEmpty());
+    void usdaRejectsMissingIdsAndBrandedFoods() {
+
+        RestClient.Builder builder =
+                RestClient.builder()
+                        .baseUrl("https://usda.example");
+
+        MockRestServiceServer server =
+                MockRestServiceServer
+                        .bindTo(builder)
+                        .build();
+
+
+        String noId =
+                SEARCH_FOOD.replace(
+                        "\"fdcId\":173944",
+                        "\"fdcId\":0"
+                );
+
+
+        /*
+         * Even if a USDA Branded record uses grams,
+         * NutriVerse does not label manufacturer
+         * branded data as government-verified food data.
+         */
+        String branded =
+                SEARCH_FOOD.replace(
+                        "\"SR Legacy\"",
+                        "\"Branded\",\"servingSizeUnit\":\"g\""
+                );
+
+
+        server.expect(anything())
+                .andRespond(
+                        withSuccess(
+                                "{\"foods\":["
+                                        + noId
+                                        + ","
+                                        + branded
+                                        + "]}",
+                                MediaType.APPLICATION_JSON
+                        )
+                );
+
+
+        List<NutritionResult> foods =
+                new UsdaFoodDataProvider(
+                        builder.build(),
+                        "test-key"
+                )
+                        .search("banana");
+
+
+        assertTrue(foods.isEmpty());
+
         server.verify();
     }
 

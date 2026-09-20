@@ -3,6 +3,7 @@ package com.nutriverse.backend.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public class ProfileUpdateRequest {
 
@@ -10,13 +11,16 @@ public class ProfileUpdateRequest {
     @Max(value = 120, message = "Age must not exceed 120")
     private Integer age;
 
+
     @Min(value = 50, message = "Height must be at least 50 cm")
     @Max(value = 250, message = "Height must not exceed 250 cm")
     private Double height;
 
+
     @Min(value = 10, message = "Weight must be at least 10 kg")
     @Max(value = 500, message = "Weight must not exceed 500 kg")
     private Double weight;
+
 
     @Pattern(
             regexp = "MALE|FEMALE|OTHER",
@@ -24,11 +28,13 @@ public class ProfileUpdateRequest {
     )
     private String gender;
 
+
     @Pattern(
             regexp = "VEGETARIAN|VEGAN|NON_VEGETARIAN",
             message = "Invalid diet preference"
     )
     private String dietType;
+
 
     @Pattern(
             regexp = "SEDENTARY|LIGHTLY_ACTIVE|MODERATELY_ACTIVE|VERY_ACTIVE|EXTRA_ACTIVE",
@@ -36,11 +42,19 @@ public class ProfileUpdateRequest {
     )
     private String activityLevel;
 
+
     @Pattern(
             regexp = "WEIGHT_LOSS|WEIGHT_GAIN|MAINTENANCE|HEALTHY_EATING|FITNESS",
             message = "Invalid nutrition goal"
     )
     private String goal;
+
+
+    @Size(
+            max = 200,
+            message = "Food preferences must not exceed 200 characters"
+    )
+    private String foodPreferences;
 
 
     public Integer getAge() {
@@ -103,5 +117,14 @@ public class ProfileUpdateRequest {
 
     public void setGoal(String goal) {
         this.goal = goal;
+    }
+
+
+    public String getFoodPreferences() {
+        return foodPreferences;
+    }
+
+    public void setFoodPreferences(String foodPreferences) {
+        this.foodPreferences = foodPreferences;
     }
 }

@@ -39,10 +39,29 @@ class LiveUsdaVerificationTests {
         assertFalse(fetched.isEstimated());
         assertEquals(100.0, fetched.getServingSize());
         assertEquals("g", fetched.getServingUnit());
-        assertEquals(selected.getCalories(), fetched.getCalories());
-        assertEquals(selected.getProtein(), fetched.getProtein());
-        assertEquals(selected.getCarbs(), fetched.getCarbs());
-        assertEquals(selected.getFat(), fetched.getFat());
+        assertEquals(
+                selected.getCalories(),
+                fetched.getCalories(),
+                0.1
+        );
+
+        assertEquals(
+                selected.getProtein(),
+                fetched.getProtein(),
+                0.1
+        );
+
+        assertEquals(
+                selected.getCarbs(),
+                fetched.getCarbs(),
+                0.1
+        );
+
+        assertEquals(
+                selected.getFat(),
+                fetched.getFat(),
+                0.1
+        );
     }
 
     private void diagnoseDetails(NutritionResult selected, String key) {

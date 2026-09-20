@@ -12,10 +12,12 @@ public class NutritionProfileService {
     private final NutritionProfileRepository nutritionProfileRepository;
     private final DailyTargetService dailyTargetService;
 
+
     public NutritionProfileService(
             NutritionProfileRepository nutritionProfileRepository,
             DailyTargetService dailyTargetService
     ) {
+
         this.nutritionProfileRepository =
                 nutritionProfileRepository;
 
@@ -24,33 +26,33 @@ public class NutritionProfileService {
     }
 
 
-    // =========================================================
-    // GET OR CREATE PROFILE
-    // =========================================================
-
     public NutritionProfile getOrCreateProfile(
             String userId
     ) {
 
-        NutritionProfile profile = nutritionProfileRepository
-                .findByUserId(userId)
-                .orElseGet(() -> {
+        NutritionProfile profile =
+                nutritionProfileRepository
+                        .findByUserId(userId)
+                        .orElseGet(() -> {
 
-                    NutritionProfile newProfile =
-                            new NutritionProfile(userId);
+                            NutritionProfile newProfile =
+                                    new NutritionProfile(userId);
 
-                    return nutritionProfileRepository
-                            .save(newProfile);
-                });
+                            return nutritionProfileRepository
+                                    .save(newProfile);
+                        });
 
-        NutritionProfile calculated = dailyTargetService.calculateTargets(userId);
-        return calculated == null ? profile : calculated;
+
+        NutritionProfile calculated =
+                dailyTargetService
+                        .calculateTargets(userId);
+
+
+        return calculated == null
+                ? profile
+                : calculated;
     }
 
-
-    // =========================================================
-    // UPDATE PROFILE
-    // =========================================================
 
     public NutritionProfile updateProfile(
             String userId,
@@ -110,12 +112,27 @@ public class NutritionProfileService {
         }
 
 
+        if (request.getFoodPreferences() != null) {
+
+            String foodPreferences =
+                    request
+                            .getFoodPreferences()
+                            .trim();
+
+            profile.setFoodPreferences(
+                    foodPreferences.isEmpty()
+                            ? null
+                            : foodPreferences
+            );
+        }
+
+
         /*
-         * Only user-controlled profile information
-         * is accepted from the request.
+         * Only user-editable information is accepted.
          *
-         * Calorie, protein and water targets are
-         * calculated by the backend.
+         * Daily calorie, protein and water targets are
+         * calculated by the backend and are not accepted
+         * from the frontend.
          */
         nutritionProfileRepository.save(profile);
 

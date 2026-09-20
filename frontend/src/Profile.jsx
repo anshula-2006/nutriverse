@@ -1,9 +1,21 @@
 import AppNav from "./AppNav.jsx";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import "./Profile.css";
-import { API_URL, readUser, handleUnauthorized, readResponse } from "./api.js";
+
+import {
+  API_URL,
+  readUser,
+  handleUnauthorized,
+  readResponse
+} from "./api.js";
+
 
 const EMPTY_PROFILE = {
   age: "",
@@ -12,8 +24,10 @@ const EMPTY_PROFILE = {
   gender: "",
   dietType: "",
   activityLevel: "",
-  goal: ""
+  goal: "",
+  foodPreferences: ""
 };
+
 
 function Profile() {
 
@@ -23,10 +37,14 @@ function Profile() {
     localStorage.getItem("token");
 
   const user = readUser();
-  const savingRef = useRef(false);
+
+  const savingRef =
+    useRef(false);
+
 
   const [profile, setProfile] =
     useState(EMPTY_PROFILE);
+
 
   const [targets, setTargets] =
     useState({
@@ -34,6 +52,7 @@ function Profile() {
       dailyProteinTarget: null,
       dailyWaterTarget: null
     });
+
 
   const [loading, setLoading] =
     useState(true);
@@ -52,81 +71,166 @@ function Profile() {
 
 
   // =========================================================
+  // MAP BACKEND PROFILE
+  // =========================================================
+
+  function applyProfile(data) {
+
+    setProfile({
+      age: data.age ?? "",
+      height: data.height ?? "",
+      weight: data.weight ?? "",
+      gender: data.gender ?? "",
+      dietType: data.dietType ?? "",
+      activityLevel:
+        data.activityLevel ?? "",
+      goal: data.goal ?? "",
+      foodPreferences:
+        data.foodPreferences ?? ""
+    });
+
+
+    setTargets({
+      dailyCalorieTarget:
+        data.dailyCalorieTarget ?? null,
+
+      dailyProteinTarget:
+        data.dailyProteinTarget ?? null,
+
+      dailyWaterTarget:
+        data.dailyWaterTarget ?? null
+    });
+  }
+
+
+  // =========================================================
   // LOAD PROFILE
   // =========================================================
 
-  const loadProfile = useCallback(async (signal) => {
+  const loadProfile =
+    useCallback(
+      async (signal) => {
 
-    try {
+        try {
 
-      setLoading(true);
+          setLoading(true);
 
-      const response = await fetch(
-        `${API_URL}/api/profile`,
-        {
-          method: "GET",
-          signal,
 
-          headers: {
-            Authorization:
-              `Bearer ${token}`
+          const response =
+            await fetch(
+              `${API_URL}/api/profile`,
+              {
+                method: "GET",
+                signal,
+
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`
+                }
+              }
+            );
+
+
+          if (
+            handleUnauthorized(
+              response,
+              navigate
+            )
+          ) {
+            return;
+          }
+
+
+          const data =
+            await readResponse(
+              response,
+              "Could not load your profile"
+            );
+
+
+          if (
+            !data ||
+            Array.isArray(data)
+          ) {
+
+            throw new Error(
+              "The server returned an invalid profile."
+            );
+          }
+
+
+          if (signal?.aborted) {
+            return;
+          }
+
+
+          applyProfile(data);
+
+
+        } catch (error) {
+
+          if (
+            error.name !==
+            "AbortError"
+          ) {
+
+            setMessage(
+              error.message ||
+              "Could not load your profile."
+            );
+
+            setIsError(true);
+          }
+
+        } finally {
+
+          if (!signal?.aborted) {
+            setLoading(false);
           }
         }
-      );
-
-      if (handleUnauthorized(response, navigate)) {
-        return;
-      }
-
-      const data = await readResponse(response, "Could not load your profile");
-      if (Array.isArray(data)) throw new Error("The server returned an invalid profile.");
-      if (signal?.aborted) return;
-
-      setProfile({
-        age: data.age ?? "",
-        height: data.height ?? "",
-        weight: data.weight ?? "",
-        gender: data.gender ?? "",
-        dietType: data.dietType ?? "",
-        activityLevel:
-          data.activityLevel ?? "",
-        goal: data.goal ?? ""
-      });
-
-      setTargets({
-        dailyCalorieTarget:
-          data.dailyCalorieTarget ?? null,
-
-        dailyProteinTarget:
-          data.dailyProteinTarget ?? null,
-
-        dailyWaterTarget:
-          data.dailyWaterTarget ?? null
-      });
-
-    } catch (error) {
-      if (error.name !== "AbortError") {
-        setMessage(error.message || "Could not load your profile.");
-        setIsError(true);
-      }
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [navigate, token]);
-
-  useEffect(() => {
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
-    const controller = new AbortController();
-    loadProfile(controller.signal);
-    return () => controller.abort();
-  }, [loadProfile, navigate, token]);
+      },
+      [navigate, token]
+    );
 
 
   // =========================================================
-  // UPDATE INPUT
+  // AUTH + INITIAL LOAD
+  // =========================================================
+
+  useEffect(() => {
+
+    if (!token) {
+
+      navigate(
+        "/login",
+        { replace: true }
+      );
+
+      return;
+    }
+
+
+    const controller =
+      new AbortController();
+
+
+    loadProfile(
+      controller.signal
+    );
+
+
+    return () =>
+      controller.abort();
+
+  }, [
+    loadProfile,
+    navigate,
+    token
+  ]);
+
+
+  // =========================================================
+  // UPDATE FIELD
   // =========================================================
 
   function updateField(
@@ -139,8 +243,69 @@ function Profile() {
       [field]: value
     }));
 
+
     setMessage("");
     setIsError(false);
+  }
+
+
+  // =========================================================
+  // VALIDATION
+  // =========================================================
+
+  function validateProfile() {
+
+    const age =
+      Number(profile.age);
+
+    const height =
+      Number(profile.height);
+
+    const weight =
+      Number(profile.weight);
+
+
+    if (
+      !Number.isInteger(age) ||
+      age < 1 ||
+      age > 120
+    ) {
+
+      return "Enter an age from 1 to 120.";
+    }
+
+
+    if (
+      !Number.isFinite(height) ||
+      height < 50 ||
+      height > 250
+    ) {
+
+      return "Enter a height from 50 to 250 cm.";
+    }
+
+
+    if (
+      !Number.isFinite(weight) ||
+      weight < 10 ||
+      weight > 500
+    ) {
+
+      return "Enter a weight from 10 to 500 kg.";
+    }
+
+
+    if (
+      profile.foodPreferences
+        .trim()
+        .length > 200
+    ) {
+
+      return "Food preferences must not exceed 200 characters.";
+    }
+
+
+    return null;
   }
 
 
@@ -154,96 +319,124 @@ function Profile() {
       return;
     }
 
-    const age = Number(profile.age);
-    const height = Number(profile.height);
-    const weight = Number(profile.weight);
-    if (!Number.isInteger(age) || age < 1 || age > 120 ||
-        !Number.isFinite(height) || height < 50 || height > 250 ||
-        !Number.isFinite(weight) || weight < 10 || weight > 500) {
-      setMessage("Enter an age from 1 to 120, height from 50 to 250 cm, and weight from 10 to 500 kg.");
+
+    const validationError =
+      validateProfile();
+
+
+    if (validationError) {
+
+      setMessage(
+        validationError
+      );
+
       setIsError(true);
+
       return;
     }
+
+
     savingRef.current = true;
+
 
     try {
 
       setSaving(true);
+
       setMessage("");
+
       setIsError(false);
 
 
-      const response = await fetch(
-        `${API_URL}/api/profile`,
-        {
-          method: "PATCH",
+      const response =
+        await fetch(
+          `${API_URL}/api/profile`,
+          {
+            method: "PATCH",
 
-          headers: {
-            "Content-Type":
-              "application/json",
+            headers: {
+              "Content-Type":
+                "application/json",
 
-            Authorization:
-              `Bearer ${token}`
-          },
-
-          body: JSON.stringify({
-            age: Number(profile.age),
-
-            height:
-              Number(profile.height),
-
-            weight:
-              Number(profile.weight),
-
-            gender:
-              profile.gender || null,
-
-            dietType:
-              profile.dietType || null,
-
-            activityLevel:
-              profile.activityLevel || null,
-
-            goal:
-              profile.goal || null
-          })
-        }
-      );
+              Authorization:
+                `Bearer ${token}`
+            },
 
 
-      if (handleUnauthorized(response, navigate)) {
+            body: JSON.stringify({
+
+              age:
+                Number(profile.age),
+
+              height:
+                Number(profile.height),
+
+              weight:
+                Number(profile.weight),
+
+              gender:
+                profile.gender ||
+                null,
+
+              dietType:
+                profile.dietType ||
+                null,
+
+              activityLevel:
+                profile.activityLevel ||
+                null,
+
+              goal:
+                profile.goal ||
+                null,
+
+              /*
+               * Empty string is intentional.
+               * Backend converts blank food
+               * preferences to null.
+               */
+              foodPreferences:
+                profile
+                  .foodPreferences
+                  .trim()
+            })
+          }
+        );
+
+
+      if (
+        handleUnauthorized(
+          response,
+          navigate
+        )
+      ) {
         return;
       }
 
 
-      const data = await readResponse(response, "Could not update your profile");
-      if (Array.isArray(data)) throw new Error("The server returned an invalid profile.");
-
-      setProfile({
-        age: data.age ?? "",
-        height: data.height ?? "",
-        weight: data.weight ?? "",
-        gender: data.gender ?? "",
-        dietType: data.dietType ?? "",
-        activityLevel:
-          data.activityLevel ?? "",
-        goal: data.goal ?? ""
-      });
+      const data =
+        await readResponse(
+          response,
+          "Could not update your profile"
+        );
 
 
-      setTargets({
-        dailyCalorieTarget:
-          data.dailyCalorieTarget ?? null,
+      if (
+        !data ||
+        Array.isArray(data)
+      ) {
 
-        dailyProteinTarget:
-          data.dailyProteinTarget ?? null,
+        throw new Error(
+          "The server returned an invalid profile."
+        );
+      }
 
-        dailyWaterTarget:
-          data.dailyWaterTarget ?? null
-      });
+
+      applyProfile(data);
 
 
       setEditing(false);
+
 
       setMessage(
         "Profile updated successfully."
@@ -254,26 +447,33 @@ function Profile() {
 
     } catch (error) {
 
-      setMessage(error.message || "Could not update your profile.");
+      setMessage(
+        error.message ||
+        "Could not update your profile."
+      );
 
       setIsError(true);
+
 
     } finally {
 
       savingRef.current = false;
+
       setSaving(false);
     }
   }
 
 
   // =========================================================
-  // CANCEL EDIT
+  // CANCEL
   // =========================================================
 
   async function cancelEdit() {
 
     setEditing(false);
+
     setMessage("");
+
     setIsError(false);
 
     await loadProfile();
@@ -281,22 +481,27 @@ function Profile() {
 
 
   // =========================================================
-  // FORMAT
+  // FORMAT ENUM
   // =========================================================
 
   function format(value) {
 
-    if (typeof value !== "string" || !value) {
+    if (
+      typeof value !== "string" ||
+      !value
+    ) {
+
       return "Not set";
     }
+
 
     return value
       .replaceAll("_", " ")
       .toLowerCase()
       .replace(
         /\b\w/g,
-        letter =>
-          letter.toUpperCase()
+        character =>
+          character.toUpperCase()
       );
   }
 
@@ -323,19 +528,14 @@ function Profile() {
 
     <div className="profile-page">
 
-
-      {/* SIDEBAR */}
-
       <AppNav />
 
 
-      {/* MAIN */}
-
       <main className="profile-main">
 
+        {/* HEADER */}
 
         <header className="profile-header">
-
 
           <div>
 
@@ -348,9 +548,9 @@ function Profile() {
             </h1>
 
             <p>
-              Keep your information updated
-              so Nutri can personalize your
-              recommendations.
+              Tell Nutri about your lifestyle,
+              diet and food preferences so your
+              recommendations can be more relevant.
             </p>
 
           </div>
@@ -360,36 +560,47 @@ function Profile() {
 
             <button
               className="profile-edit-button"
+              type="button"
+
               onClick={() => {
 
                 setEditing(true);
-                setMessage("");
-                setIsError(false);
 
+                setMessage("");
+
+                setIsError(false);
               }}
             >
+
               ✏️ Edit Profile
+
             </button>
-
           )}
-
 
         </header>
 
 
+        {/* MESSAGE */}
+
         {message && (
 
           <div
-            role={isError ? "alert" : "status"}
+            role={
+              isError
+                ? "alert"
+                : "status"
+            }
+
             className={
               isError
                 ? "profile-message error"
                 : "profile-message"
             }
           >
-            {message}
-          </div>
 
+            {message}
+
+          </div>
         )}
 
 
@@ -397,11 +608,11 @@ function Profile() {
 
         <section className="profile-user-card">
 
-
           <div className="profile-avatar">
 
             {user.name?.[0]
-              ?.toUpperCase() || "U"}
+              ?.toUpperCase() ||
+              "U"}
 
           </div>
 
@@ -413,29 +624,30 @@ function Profile() {
             </h2>
 
             <p>
-              {format(profile.goal)}
+              {format(
+                profile.goal
+              )}
             </p>
 
           </div>
 
-
         </section>
 
 
-        {/* PERSONAL INFORMATION */}
+        {/* PROFILE DETAILS */}
 
         <section className="profile-card">
-
 
           <div className="profile-card-title">
 
             <h2>
-              Personal Details
+              Nutrition Preferences
             </h2>
 
             <p>
-              These details help Nutri
-              personalize nutrition guidance.
+              Nutri uses these details when
+              personalizing recommendations and
+              explanations.
             </p>
 
           </div>
@@ -443,12 +655,15 @@ function Profile() {
 
           <div className="profile-grid">
 
-
             <ProfileInput
               label="Age"
               type="number"
               value={profile.age}
-              disabled={!editing || saving}
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "age",
@@ -460,14 +675,23 @@ function Profile() {
 
             <ProfileSelect
               label="Gender"
-              value={profile.gender}
-              disabled={!editing || saving}
+
+              value={
+                profile.gender
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "gender",
                   value
                 )
               }
+
               options={[
                 ["", "Not set"],
                 ["MALE", "Male"],
@@ -481,8 +705,16 @@ function Profile() {
               label="Height"
               type="number"
               unit="cm"
-              value={profile.height}
-              disabled={!editing || saving}
+
+              value={
+                profile.height
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "height",
@@ -496,8 +728,16 @@ function Profile() {
               label="Weight"
               type="number"
               unit="kg"
-              value={profile.weight}
-              disabled={!editing || saving}
+
+              value={
+                profile.weight
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "weight",
@@ -509,16 +749,28 @@ function Profile() {
 
             <ProfileSelect
               label="Diet Preference"
-              value={profile.dietType}
-              disabled={!editing || saving}
+
+              value={
+                profile.dietType
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "dietType",
                   value
                 )
               }
+
               options={[
-                ["", "Not set"],
+                [
+                  "",
+                  "Not set"
+                ],
 
                 [
                   "VEGETARIAN",
@@ -540,18 +792,28 @@ function Profile() {
 
             <ProfileSelect
               label="Activity Level"
+
               value={
                 profile.activityLevel
               }
-              disabled={!editing || saving}
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "activityLevel",
                   value
                 )
               }
+
               options={[
-                ["", "Not set"],
+                [
+                  "",
+                  "Not set"
+                ],
 
                 [
                   "SEDENTARY",
@@ -583,16 +845,28 @@ function Profile() {
 
             <ProfileSelect
               label="Nutrition Goal"
-              value={profile.goal}
-              disabled={!editing || saving}
+
+              value={
+                profile.goal
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
               onChange={value =>
                 updateField(
                   "goal",
                   value
                 )
               }
+
               options={[
-                ["", "Not set"],
+                [
+                  "",
+                  "Not set"
+                ],
 
                 [
                   "WEIGHT_LOSS",
@@ -622,27 +896,73 @@ function Profile() {
             />
 
 
+            <ProfileInput
+              label="Food Preferences"
+
+              value={
+                profile.foodPreferences
+              }
+
+              placeholder=
+                "e.g. oats, paneer, South Indian food"
+
+              maxLength={200}
+
+              disabled={
+                !editing ||
+                saving
+              }
+
+              onChange={value =>
+                updateField(
+                  "foodPreferences",
+                  value
+                )
+              }
+            />
+
           </div>
+
+
+          <p className="profile-preference-help">
+            Add foods or cuisines you enjoy.
+            Avoid entering medical information here.
+          </p>
 
 
           {editing && (
 
             <div className="profile-actions">
 
-
               <button
                 className="profile-cancel"
-                onClick={cancelEdit}
-                disabled={saving}
+                type="button"
+
+                onClick={
+                  cancelEdit
+                }
+
+                disabled={
+                  saving
+                }
               >
+
                 Cancel
+
               </button>
 
 
               <button
                 className="profile-save"
-                onClick={saveProfile}
-                disabled={saving}
+                type="button"
+
+                onClick={
+                  saveProfile
+                }
+
+                disabled={
+                  saving
+                }
               >
 
                 {saving
@@ -651,19 +971,15 @@ function Profile() {
 
               </button>
 
-
             </div>
-
           )}
-
 
         </section>
 
 
-        {/* TARGETS */}
+        {/* DAILY TARGETS */}
 
         <section className="profile-card">
-
 
           <div className="profile-card-title">
 
@@ -672,8 +988,11 @@ function Profile() {
             </h2>
 
             <p>
-              These estimates are calculated automatically from your profile.
-              They are personalized targets, not verified food composition values.
+              These are profile-based estimates
+              calculated by NutriVerse.
+              They are not verified food
+              composition values or clinical
+              prescriptions.
             </p>
 
           </div>
@@ -681,10 +1000,10 @@ function Profile() {
 
           <div className="profile-targets">
 
-
             <TargetCard
               icon="🔥"
               title="Calories"
+
               value={
                 targets.dailyCalorieTarget
                   ? `${targets.dailyCalorieTarget} kcal`
@@ -696,6 +1015,7 @@ function Profile() {
             <TargetCard
               icon="💪"
               title="Protein"
+
               value={
                 targets.dailyProteinTarget
                   ? `${targets.dailyProteinTarget} g`
@@ -707,6 +1027,7 @@ function Profile() {
             <TargetCard
               icon="💧"
               title="Water"
+
               value={
                 targets.dailyWaterTarget
                   ? `${targets.dailyWaterTarget} L`
@@ -714,15 +1035,11 @@ function Profile() {
               }
             />
 
-
           </div>
-
 
         </section>
 
-
       </main>
-
 
     </div>
   );
@@ -739,7 +1056,9 @@ function ProfileInput({
   onChange,
   disabled,
   type = "text",
-  unit
+  unit,
+  placeholder = "",
+  maxLength
 }) {
 
   return (
@@ -755,8 +1074,21 @@ function ProfileInput({
 
         <input
           type={type}
+
           value={value}
-          disabled={disabled}
+
+          placeholder={
+            placeholder
+          }
+
+          maxLength={
+            maxLength
+          }
+
+          disabled={
+            disabled
+          }
+
           onChange={event =>
             onChange(
               event.target.value
@@ -764,7 +1096,9 @@ function ProfileInput({
           }
         />
 
+
         {unit && (
+
           <small>
             {unit}
           </small>
@@ -800,7 +1134,11 @@ function ProfileSelect({
 
       <select
         value={value}
-        disabled={disabled}
+
+        disabled={
+          disabled
+        }
+
         onChange={event =>
           onChange(
             event.target.value
@@ -809,16 +1147,24 @@ function ProfileSelect({
       >
 
         {options.map(
-          ([optionValue, labelText]) => (
+          ([
+            optionValue,
+            labelText
+          ]) => (
 
             <option
-              key={optionValue}
-              value={optionValue}
-              disabled={optionValue === "" && value !== ""}
-            >
-              {labelText}
-            </option>
+              key={
+                optionValue
+              }
 
+              value={
+                optionValue
+              }
+            >
+
+              {labelText}
+
+            </option>
           )
         )}
 
@@ -830,7 +1176,7 @@ function ProfileSelect({
 
 
 // =========================================================
-// TARGET
+// TARGET CARD
 // =========================================================
 
 function TargetCard({
