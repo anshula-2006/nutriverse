@@ -96,7 +96,7 @@ class RecommendationConversationTests {
             assertEquals("WEIGHT_LOSS", response.getInterpretedGoal());
             assertEquals(3, response.getRecommendations().size());
             for (var item : response.getRecommendations()) {
-                assertTrue(item.getReason().contains("high-protein"));
+                assertTrue(item.getReason().contains("protein-focused filter"));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("vegetarian")));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("weight loss")));
                 assertTrue(item.getWhy().stream().anyMatch(reason -> reason.contains("gluten")));
@@ -124,14 +124,41 @@ class RecommendationConversationTests {
     @ParameterizedTest
     @ValueSource(strings = {"any other suggestions?", "more suggestions", "more options", "something else",
             "anything else", "another", "another option", "another suggestion",
-            "different options", "different recommendations"})
+            "different options", "different recommendations", "give me more",
+            "show me a few more", "what else can I have?", "can I get more?"})
     void alternativePhrasesReuseThePreviousRequest(String followup) {
         RecommendationResponse first = service().recommend("owner", REQUEST);
         RecommendationResponse next = service().recommend("owner", followup);
         assertEquals(3, next.getRecommendations().size());
         assertTrue(Collections.disjoint(ids(first), ids(next)));
-        assertTrue(next.getRecommendations().stream().allMatch(item -> item.getReason().contains("high-protein")));
+        assertTrue(next.getRecommendations().stream()
+                .allMatch(item -> item.getReason().contains("protein-focused filter")));
         assertTrue(service().isStructuredFollowup("owner", followup));
+    }
+
+    @Test
+    void unrelatedConversationStopsStructuredFollowupRouting() {
+        service().recommend("owner", REQUEST);
+        memory.addMessage("owner", "user", "What is fiber?");
+        memory.addMessage("owner", "assistant", "Fiber is a type of carbohydrate.");
+
+        assertFalse(service().isStructuredFollowup("owner", "Anything else?"));
+    }
+
+    @Test
+    void lowProteinFoodsDoNotPassTheProteinFocusedFilter() {
+        when(candidates.generateFoodCandidates(anyString(), anyString(), anyCollection(), anyInt()))
+                .thenReturn(List.of("idli", "tofu"));
+        when(lookup.search("idli")).thenReturn(List.of(food("900", "idli", 6.36)));
+        when(lookup.search("tofu")).thenReturn(List.of(food("901", "tofu", 12.0)));
+        exactRecords.put("900", food("900", "idli", 6.36));
+        exactRecords.put("901", food("901", "tofu", 12.0));
+
+        RecommendationResponse response = service().recommend("owner", REQUEST);
+
+        assertEquals(Set.of("901"), ids(response));
+        assertTrue(response.getRecommendations().getFirst().getReason()
+                .contains("at least 8 g protein per 100 g"));
     }
 
     @Test

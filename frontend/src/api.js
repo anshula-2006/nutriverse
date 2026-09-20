@@ -1,4 +1,11 @@
-export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/+$/, "");
+import { Capacitor } from "@capacitor/core";
+
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const developmentApiUrl = Capacitor.getPlatform() === "android"
+  ? "http://10.0.2.2:8080"
+  : "http://localhost:8080";
+
+export const API_URL = (configuredApiUrl || developmentApiUrl).replace(/\/+$/, "");
 
 // Stored user details are for display only. The server identifies users from JWTs.
 export function readUser() {

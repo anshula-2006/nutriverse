@@ -25,7 +25,9 @@ const EMPTY_PROFILE = {
   dietType: "",
   activityLevel: "",
   goal: "",
-  foodPreferences: ""
+  foodPreferences: "",
+  foodDislikes: "",
+  dietaryRestriction: "NONE"
 };
 
 
@@ -86,7 +88,11 @@ function Profile() {
         data.activityLevel ?? "",
       goal: data.goal ?? "",
       foodPreferences:
-        data.foodPreferences ?? ""
+        data.foodPreferences ?? "",
+      foodDislikes:
+        data.foodDislikes ?? "",
+      dietaryRestriction:
+        data.dietaryRestriction ?? "NONE"
     });
 
 
@@ -305,6 +311,16 @@ function Profile() {
     }
 
 
+    if (
+      profile.foodDislikes
+        .trim()
+        .length > 300
+    ) {
+
+      return "Food dislikes must not exceed 300 characters.";
+    }
+
+
     return null;
   }
 
@@ -398,7 +414,17 @@ function Profile() {
               foodPreferences:
                 profile
                   .foodPreferences
-                  .trim()
+                  .trim(),
+
+              foodDislikes:
+                profile
+                  .foodDislikes
+                  .trim(),
+
+              dietaryRestriction:
+                profile
+                  .dietaryRestriction ||
+                "NONE"
             })
           }
         );
@@ -921,12 +947,64 @@ function Profile() {
               }
             />
 
+
+            <ProfileInput
+              label="Foods to Avoid"
+
+              value={
+                profile.foodDislikes
+              }
+
+              placeholder=
+                "e.g. peanuts, mushrooms"
+
+              maxLength={300}
+
+              disabled={
+                !editing ||
+                saving
+              }
+
+              onChange={value =>
+                updateField(
+                  "foodDislikes",
+                  value
+                )
+              }
+            />
+
+
+            <ProfileSelect
+              label="Dietary Restriction"
+
+              value={
+                profile.dietaryRestriction
+              }
+
+              disabled={
+                !editing ||
+                saving
+              }
+
+              onChange={value =>
+                updateField(
+                  "dietaryRestriction",
+                  value
+                )
+              }
+
+              options={[
+                ["NONE", "None"],
+                ["GLUTEN_FREE", "Gluten Free / Celiac-focused"]
+              ]}
+            />
+
           </div>
 
 
           <p className="profile-preference-help">
-            Add foods or cuisines you enjoy.
-            Avoid entering medical information here.
+            Add foods or cuisines you enjoy and foods you want Nutri to exclude.
+            Gluten-free filtering still requires packaged-food label and cross-contact checks.
           </p>
 
 

@@ -399,7 +399,8 @@ public class GroqService {
             return previous == null ? message : previous;
         }
 
-        if (isAlternativeFollowup(message)) {
+        if (isAlternativeFollowup(message)
+                && hasRecentRecommendationContext(history)) {
             String previous = findPreviousRecommendationRequest(history);
 
             if (previous != null) {
@@ -428,8 +429,35 @@ public class GroqService {
                 || text.contains("different suggestion")
                 || text.contains("different option")
                 || text.contains("different recommendation")
+                || text.matches(".*\\b(?:give|show) me (?:a |some |a few )?more\\b.*")
+                || text.matches(".*\\bwhat else can i (?:eat|have|try)\\b.*")
+                || text.matches(".*\\bcan i (?:get|have) (?:some |a few )?more\\b.*")
                 || text.equals("more")
                 || text.equals("another");
+    }
+
+    private boolean hasRecentRecommendationContext(
+            List<Map<String, String>> history
+    ) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            Map<String, String> item = history.get(i);
+            String role = item.get("role");
+            String content = item.get("content");
+
+            if (content == null || content.isBlank()) {
+                continue;
+            }
+
+            if ("assistant".equals(role)) {
+                return content.contains("Recommendation:");
+            }
+
+            if ("user".equals(role)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     static boolean isRecipeRequest(String message) {

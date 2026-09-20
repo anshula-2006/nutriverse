@@ -30,6 +30,25 @@ function isRecommendationPrompt(text, previousWasChatReply = false) {
     "vegetarian", "vegan", "food", "meal", "post workout", "post-workout"
   ]);
 }
+function historyItems(data) {
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap(item => {
+    if (!item || !["user", "assistant"].includes(item.role)) return [];
+
+    if (item.role === "assistant" && item.recommendation) {
+      const items = recommendationItems(item.recommendation);
+      return [items.length
+        ? { role: "assistant", recommendation: { ...item.recommendation, recommendations: items } }
+        : { role: "assistant", content: "No additional verified options matched your constraints." }];
+    }
+
+    return typeof item.content === "string" && item.content.trim()
+      ? [{ role: item.role, content: item.content }]
+      : [];
+  });
+}
+
 function friendlyError(response) {
   if (response.status === 429) {
     const retry = Number(response.headers.get("Retry-After"));
@@ -49,15 +68,48 @@ function Chat() {
   const [foodContext, setFoodContext] = useState(location.state?.food || null);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [typingText, setTypingText] = useState("Nutri is typing...");
   const endRef = useRef(null), sendingRef = useRef(false), timerRef = useRef(null);
   useEffect(() => { if (!token) navigate("/login", { replace: true }); }, [navigate, token]);
+  useEffect(() => {
+    if (!token) {
+      setHistoryLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function loadHistory() {
+      try {
+        const response = await fetch(`${API_URL}/api/chat`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
+        });
+
+        if (handleUnauthorized(response, navigate)) return;
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!controller.signal.aborted) setMessages(historyItems(data));
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setMessages([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      }
+    }
+
+    loadHistory();
+    return () => controller.abort();
+  }, [navigate, token]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isSending]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
   async function sendMessage(text = message) {
     const userMessage = text.trim();
-    if (!userMessage || sendingRef.current) return;
+    if (!userMessage || sendingRef.current || historyLoading) return;
     if (!token) return navigate("/login");
     sendingRef.current = true;
     setMessages(prev => [...prev, { role: "user", content: userMessage }]);
@@ -128,14 +180,14 @@ function Chat() {
           <button type="button" disabled={isSending} onClick={() => setFoodContext(null)}>Clear food</button>
         </div>}
         <section className="chat-messages">
-          {messages.length === 0 && <div className="chat-welcome">
+          {!historyLoading && messages.length === 0 && <div className="chat-welcome">
             <div className="chat-welcome-text">
               <span className="chat-label">YOUR NUTRITION COMPANION</span>
               <h1>Hey {user.name || "there"} 👋</h1>
               <p>Ask for recommendations, nutrition information or practical meal ideas.</p>
               <div className="chat-suggestions">
                 {suggestions.map(([icon, title, prompt]) =>
-                  <button type="button" key={title} disabled={isSending} onClick={() => sendMessage(prompt)}>
+                  <button type="button" key={title} disabled={isSending || historyLoading} onClick={() => sendMessage(prompt)}>
                     <span>{icon}</span>{title}
                   </button>
                 )}
@@ -171,9 +223,9 @@ function Chat() {
         </section>
         <div className="chat-input-area">
           <textarea aria-label="Message to Nutri" rows="1" placeholder="Ask Nutri about food, meals or nutrition..."
-            value={message} disabled={isSending} onChange={e => setMessage(e.target.value)} onKeyDown={handleKey} />
+            value={message} disabled={isSending || historyLoading} onChange={e => setMessage(e.target.value)} onKeyDown={handleKey} />
           <button className="chat-send" type="button" aria-label="Send message"
-            disabled={!message.trim() || isSending} onClick={() => sendMessage()}>➤</button>
+            disabled={!message.trim() || isSending || historyLoading} onClick={() => sendMessage()}>➤</button>
         </div>
       </main>
     </div>
