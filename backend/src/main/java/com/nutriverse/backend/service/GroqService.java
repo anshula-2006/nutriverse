@@ -97,10 +97,10 @@ public class GroqService {
     );
 
     private static final String NUMBER_VALUE =
-            "(?:\\p{N}+(?:[.,]\\p{N}+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+            "(?<![\\p{L}\\p{N}_])(?:\\p{N}+(?:[.,]\\p{N}+)?|(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|"
                     + "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
                     + "nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
-                    + "hundred|thousand|half|quarter|dozen)";
+                    + "hundred|thousand|half|quarter|dozen)\\b)";
 
     private static final Pattern UNSUPPORTED_NUTRITION_NUMBER = Pattern.compile(
             NUMBER_VALUE + ".{0,30}\\b(?:" + NUTRIENT_WORDS

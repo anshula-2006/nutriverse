@@ -80,6 +80,32 @@ class ChatSafetyTests {
     }
 
     @Test
+    void qualitativeWordsContainingNumberNamesAreNotNutritionAmounts() {
+        for (String reply : List.of(
+                "A protein snack can fit your weight-loss goal.",
+                "You can often enjoy snacks with protein.",
+                "Someone mentioned protein-rich snacks.")) {
+            assertEquals(reply, ReflectionTestUtils.invokeMethod(service, "guardQualitativeReply", reply));
+        }
+    }
+
+    @Test
+    void cravingRequestPreservesQualitativeModelReply() {
+        when(memory.getHistory("owner")).thenReturn(List.of());
+        MockRestServiceServer server = mockGroq();
+        server.expect(requestTo("https://groq.example/chat"))
+                .andExpect(content().string(containsString("I feel like eating something unhealthy")))
+                .andRespond(withSuccess("""
+                        {"choices":[{"message":{"content":"A protein snack can fit your weight-loss goal. What snack are you craving?"}}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        String answer = service.getReply("owner", "I feel like eating something unhealthy");
+
+        assertEquals("A protein snack can fit your weight-loss goal. What snack are you craving?", answer);
+        server.verify();
+    }
+
+    @Test
     void naturalConfirmationContinuesTheLatestAssistantOffer() {
         List<Map<String, String>> history = List.of(
                 Map.of("role", "user", "content", "I feel like eating something unhealthy"),
