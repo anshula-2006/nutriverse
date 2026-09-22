@@ -3,9 +3,7 @@ package com.nutriverse.backend.controller;
 import com.nutriverse.backend.dto.ChatHistoryItem;
 import com.nutriverse.backend.dto.ChatRequest;
 import com.nutriverse.backend.dto.ChatResponse;
-import com.nutriverse.backend.service.CompositeMealService;
-import com.nutriverse.backend.service.GroqService;
-import com.nutriverse.backend.service.RecommendationService;
+import com.nutriverse.backend.service.*;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,41 +16,43 @@ import java.util.List;
 @RequestMapping("/api/chat")
 public class ChatController {
 
-    private final GroqService groqService;
-    private final RecommendationService recommendationService;
-    private final CompositeMealService compositeMealService;
+    private final GroqService groq;
+    private final RecommendationService recommendations;
+    private final CompositeMealService compositeMeals;
 
     @Autowired
     public ChatController(
-            GroqService groqService,
-            RecommendationService recommendationService,
-            CompositeMealService compositeMealService
+            GroqService groq,
+            RecommendationService recommendations,
+            CompositeMealService compositeMeals
     ) {
-        this.groqService = groqService;
-        this.recommendationService = recommendationService;
-        this.compositeMealService = compositeMealService;
+        this.groq = groq;
+        this.recommendations = recommendations;
+        this.compositeMeals = compositeMeals;
     }
 
-    // Keeps existing tests compatible
+    // Existing tests use this constructor.
     public ChatController(
-            GroqService groqService,
-            RecommendationService recommendationService
+            GroqService groq,
+            RecommendationService recommendations
     ) {
-        this(groqService, recommendationService, null);
+        this.groq = groq;
+        this.recommendations = recommendations;
+        this.compositeMeals = null;
     }
 
     @GetMapping
     public List<ChatHistoryItem> history(
             @RequestAttribute("authenticatedUserId") String userId
     ) {
-        return recommendationService.getChatHistory(userId);
+        return recommendations.getChatHistory(userId);
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> clearHistory(
+    public ResponseEntity<Void> clear(
             @RequestAttribute("authenticatedUserId") String userId
     ) {
-        recommendationService.clearChatHistory(userId);
+        recommendations.clearChatHistory(userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -61,50 +61,49 @@ public class ChatController {
             @RequestAttribute("authenticatedUserId") String userId,
             @Valid @RequestBody ChatRequest request
     ) {
+        String message = request.getMessage();
 
-        // Homemade/composite meal flow
-        if (request.getSourceId() == null
-                && compositeMealService != null) {
-
-            ChatResponse composite =
-                    compositeMealService.handle(
-                            userId,
-                            request.getMessage()
-                    );
-
-            if (composite != null)
-                return composite;
+        // Exact Food Search selection.
+        if (request.getSourceId() != null) {
+            return new ChatResponse(groq.getReply(
+                    userId,
+                    message,
+                    request.getSource(),
+                    request.getSourceId()
+            ));
         }
 
-        // Recommendation follow-up
-        if (request.getSourceId() == null
-                && recommendationService.isStructuredFollowup(
-                userId,
-                request.getMessage()
-        )) {
-
+        // Generate a recipe before homemade-meal routing.
+        if (GroqService.isRecipeRequest(message)
+                && !GroqService.isQuantitative(message)) {
             return new ChatResponse(
-                    "Here are additional verified options.",
-                    recommendationService.recommend(
-                            userId,
-                            request.getMessage()
-                    )
+                    groq.getReply(userId, message)
             );
         }
 
-        // Normal chat / selected food
-        String reply = request.getSourceId() == null
-                ? groqService.getReply(
-                userId,
-                request.getMessage()
-        )
-                : groqService.getReply(
-                userId,
-                request.getMessage(),
-                request.getSource(),
-                request.getSourceId()
-        );
+        // Nutrition for a recipe already generated in chat.
+        if (groq.hasRecipeNutritionContext(userId, message)) {
+            return new ChatResponse(
+                    groq.getReply(userId, message)
+            );
+        }
 
-        return new ChatResponse(reply);
+        // "Another option", "something else", etc.
+        if (recommendations.isStructuredFollowup(userId, message)) {
+            return new ChatResponse(
+                    "Here are additional verified options.",
+                    recommendations.recommend(userId, message)
+            );
+        }
+
+        // User-entered homemade recipe calculation.
+        if (compositeMeals != null) {
+            ChatResponse result = compositeMeals.handle(userId, message);
+            if (result != null) return result;
+        }
+
+        return new ChatResponse(
+                groq.getReply(userId, message)
+        );
     }
 }
