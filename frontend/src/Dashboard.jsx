@@ -1,46 +1,48 @@
-import AppNav from "./AppNav.jsx";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL, handleUnauthorized, readResponse } from "./api.js";
-
-import dashboardHero from "./assets/images/dashboard-hero.jpg";
+import AppNav from "./AppNav.jsx";
+import { API_URL, apiFetch, handleUnauthorized, readResponse } from "./api.js";
 import "./Dashboard.css";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+  const busyRef = useRef(false);
+  const searchRef = useRef(null);
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState("");
-  const mutationRef = useRef(false);
-  const searchRef = useRef(null);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [showWater, setShowWater] = useState(false);
+
+  const [waterOpen, setWaterOpen] = useState(false);
   const [waterMl, setWaterMl] = useState("");
-  const [showFood, setShowFood] = useState(false);
+
+  const [foodOpen, setFoodOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
   const [grams, setGrams] = useState("");
   const [mealType, setMealType] = useState("SNACK");
 
-  const loadDashboard = useCallback(async (signal) => {
-    setLoading(true);
-    setError("");
+  const loadDashboard = useCallback(async signal => {
     try {
+      setLoading(true);
+      setError("");
+
       const response = await fetch(`${API_URL}/api/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }, signal
+        headers: { Authorization: `Bearer ${token}` },
+        signal
       });
+
       if (handleUnauthorized(response, navigate)) return;
-      const dashboard = await readResponse(response, "Could not load your dashboard");
-      if (Array.isArray(dashboard) || (dashboard.todayMeals != null && !Array.isArray(dashboard.todayMeals))) {
-        throw new Error("The server returned an invalid dashboard.");
-      }
-      if (!signal?.aborted) setData(dashboard);
-    } catch (failure) {
-      if (failure.name !== "AbortError") setError(failure.message || "Could not load your dashboard.");
+      const result = await readResponse(response, "Could not load dashboard");
+
+      if (!signal?.aborted) setData(result);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message || "Could not load dashboard.");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -51,842 +53,525 @@ export default function Dashboard() {
       navigate("/login", { replace: true });
       return;
     }
+
     const controller = new AbortController();
     loadDashboard(controller.signal);
     return () => controller.abort();
   }, [loadDashboard, navigate, token]);
 
-  useEffect(() => () => searchRef.current?.abort(), []);
-
   async function logWater() {
-    if (mutationRef.current) return;
     const ml = Number(waterMl);
-    if (!Number.isFinite(ml) || ml <= 0) {
-      setError("Enter a valid amount of water.");
-      return;
-    }
-    mutationRef.current = true;
+    if (!Number.isFinite(ml) || ml <= 0 || busyRef.current) return;
+
+    busyRef.current = true;
     setSaving("water");
-    setError("");
+
     try {
-      const response = await fetch(`${API_URL}/api/water`, {
+      const response = await apiFetch(`${API_URL}/api/water`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ amountLiters: ml / 1000 })
       });
+
       if (handleUnauthorized(response, navigate)) return;
       await readResponse(response, "Could not log water");
+
       setWaterMl("");
-      setShowWater(false);
+      setWaterOpen(false);
       await loadDashboard();
-    } catch (failure) {
-      setError(failure.message || "Could not log water.");
+    } catch (e) {
+      setError(e.message || "Could not log water.");
     } finally {
-      mutationRef.current = false;
+      busyRef.current = false;
       setSaving("");
     }
   }
 
-  function updateQuery(value) {
-    searchRef.current?.abort();
-    setQuery(value);
-    setResults([]);
-    setSearched(false);
-    setSearching(false);
-  }
-
   async function searchFood() {
     if (!query.trim()) return;
+
     searchRef.current?.abort();
     const controller = new AbortController();
     searchRef.current = controller;
+
     setSearching(true);
     setSearched(false);
-    setError("");
     setResults([]);
+
     try {
-      const response = await fetch(`${API_URL}/api/nutrition/search?query=${encodeURIComponent(query.trim())}`, {
-        headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
-      });
+      const response = await fetch(
+        `${API_URL}/api/nutrition/search?query=${encodeURIComponent(query.trim())}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
+        }
+      );
+
       if (handleUnauthorized(response, navigate)) return;
       const foods = await readResponse(response, "Food search failed");
-      if (!Array.isArray(foods) || foods.some(food => !food || typeof food.foodName !== "string" || !food.sourceId)) {
-        throw new Error("The server returned invalid food search results.");
-      }
+
       if (!controller.signal.aborted) {
-        setResults(foods);
+        setResults(Array.isArray(foods) ? foods : []);
         setSearched(true);
       }
-    } catch (failure) {
-      if (failure.name !== "AbortError") setError(failure.message || "Food search failed.");
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message || "Food search failed.");
     } finally {
       if (!controller.signal.aborted) setSearching(false);
     }
   }
 
   async function logFood() {
-    if (mutationRef.current) return;
-    const quantityGrams = Number(grams);
-    if (!selectedFood || !Number.isFinite(quantityGrams) || quantityGrams <= 0) {
-      setError("Select a food and enter a valid quantity.");
-      return;
-    }
-    mutationRef.current = true;
+    const quantity = Number(grams);
+    if (!selectedFood || !Number.isFinite(quantity) || quantity <= 0 || busyRef.current) return;
+
+    busyRef.current = true;
     setSaving("food");
-    setError("");
+
     try {
-      const response = await fetch(`${API_URL}/api/nutrition/log-meal`, {
+      const response = await apiFetch(`${API_URL}/api/nutrition/log-meal`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mealType, source: selectedFood.source, sourceId: selectedFood.sourceId, quantityGrams })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          mealType,
+          source: selectedFood.source,
+          sourceId: selectedFood.sourceId,
+          quantityGrams: quantity
+        })
       });
+
       if (handleUnauthorized(response, navigate)) return;
       await readResponse(response, "Could not log food");
+
       closeFood();
       await loadDashboard();
-    } catch (failure) {
-      setError(failure.message || "Could not log food.");
+    } catch (e) {
+      setError(e.message || "Could not log food.");
     } finally {
-      mutationRef.current = false;
+      busyRef.current = false;
       setSaving("");
     }
   }
 
   function closeFood() {
     searchRef.current?.abort();
-    setSearching(false);
-    setSearched(false);
-    setShowFood(false);
+    setFoodOpen(false);
     setQuery("");
     setResults([]);
     setSelectedFood(null);
     setGrams("");
     setMealType("SNACK");
+    setSearched(false);
   }
 
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
-  function pct(value, target) {
-    if (!target) {
-      return 0;
-    }
-
-    return Math.min(
-      100,
-      Math.round(
-        ((value || 0) / target) * 100
-      )
-    );
-  }
-
-  function format(value) {
-    if (typeof value !== "string" || !value) {
-      return "Not Set";
-    }
-
-    return value
-      .replaceAll("_", " ")
-      .toLowerCase()
-      .replace(
-        /\b\w/g,
-        character =>
-          character.toUpperCase()
-      );
-  }
-
-  // =========================================================
-  // LOADING
-  // =========================================================
+  if (loading && !data) return <DashboardLoader />;
 
   if (!data) {
     return (
-      <div className="dash-loading">
-        {loading ? "Loading your dashboard..." : (
-          <div role="alert">
-            <p>{error || "Your dashboard is unavailable."}</p>
-            <button onClick={() => loadDashboard()}>Try again</button>
-          </div>
-        )}
+      <div className="dash-empty">
+        <h2>Dashboard unavailable</h2>
+        <p>{error}</p>
+        <button onClick={() => loadDashboard()}>Try again</button>
       </div>
     );
   }
 
-  // =========================================================
-  // VALUES
-  // =========================================================
+  const calories = n(data.caloriesConsumed);
+  const protein = n(data.proteinConsumed);
+  const carbs = n(data.carbsConsumed);
+  const fat = n(data.fatConsumed);
+  const water = n(data.waterConsumed);
 
-  const weekly =
-    Object.entries(
-      data.weeklyCalories || {}
-    );
+  const calorieTarget = optional(data.calorieTarget);
+  const proteinTarget = optional(data.proteinTarget);
+  const waterTarget = optional(data.waterTarget);
 
-  const max = Math.max(
-    ...weekly.map(
-      ([, value]) => value
-    ),
-    data.calorieTarget || 1
-  );
+  const macroCalories = carbs * 4 + protein * 4 + fat * 9;
+  const carbPct = macroCalories ? Math.round((carbs * 4 / macroCalories) * 100) : 0;
+  const proteinPct = macroCalories ? Math.round((protein * 4 / macroCalories) * 100) : 0;
+  const fatPct = macroCalories ? Math.max(0, 100 - carbPct - proteinPct) : 0;
 
-  const carbs =
-    data.carbsConsumed || 0;
-
-  const protein =
-    data.proteinConsumed || 0;
-
-  const fat =
-    data.fatConsumed || 0;
-
-  const totalMacro =
-    carbs * 4 +
-    protein * 4 +
-    fat * 9;
-
-  const carbPct =
-    totalMacro
-      ? Math.round(
-          ((carbs * 4) / totalMacro) * 100
-        )
-      : 0;
-
-  const proteinPct =
-    totalMacro
-      ? Math.round(
-          ((protein * 4) / totalMacro) * 100
-        )
-      : 0;
-
-  const caloriesLeft = data.calorieTarget == null ? null : Math.max(0, Math.round(data.calorieTarget - data.caloriesConsumed));
-  const proteinLeft = data.proteinTarget == null ? null : Math.max(0, Math.round(data.proteinTarget - data.proteinConsumed));
-  const waterLeft = data.waterTarget == null ? null : Math.max(0, Number((data.waterTarget - data.waterConsumed).toFixed(1)));
-  const remaining = (value, unit) => value == null ? "Target not calculated" : `${value} ${unit} remaining`;
-
-  // =========================================================
-  // UI
-  // =========================================================
+  const weekly = Object.entries(data.weeklyCalories || {});
+  const maxWeek = Math.max(1, ...weekly.map(([, value]) => n(value)));
 
   return (
     <div className="dash-page">
-
-      {/* SIDEBAR */}
-
       <AppNav name={data.name} />
 
-      {/* MAIN */}
-
       <main className="dash-main">
-        {error && !showFood && !showWater && <p role="alert">{error}</p>}
-
-        {/* HERO */}
-
-        <section className="dash-hero">
-
+        <section className="dash-top">
           <div>
-
-            <small>
-              YOUR DAILY NUTRITION
-            </small>
-
-            <h1>
-              Good to see you, {data.name} 🌿
-            </h1>
-
+            <small>TODAY'S NUTRITION</small>
+            <h1>Hello, {data.name}</h1>
             <p>
-              {caloriesLeft == null
-                ? "Complete your profile to calculate an estimated daily target."
-                : `${caloriesLeft} kcal remaining against your estimated daily target.`}
-              {" "}Small choices build healthier habits.
+              Track your meals, hydration and daily nutrition in one place.
             </p>
-
-            <div>
-
-              <button
-                onClick={() =>
-                  setShowFood(true)
-                }
-              >
-                ＋ Add Food
-              </button>
-
-              <button
-                onClick={() =>
-                  navigate("/chat")
-                }
-              >
-                Ask Nutri ✨
-              </button>
-
-            </div>
-
           </div>
 
-          <img
-            src={dashboardHero}
-            alt="Healthy ingredients"
-          />
-
+          <div className="dash-top-actions">
+            <button onClick={() => setFoodOpen(true)}>Add food</button>
+            <button className="secondary" onClick={() => setWaterOpen(true)}>
+              Log water
+            </button>
+            <button className="secondary" onClick={() => navigate("/chat")}>
+              Ask Nutri
+            </button>
+          </div>
         </section>
 
-        {/* METRICS */}
+        {error && <p className="dash-error">{error}</p>}
 
-        <section className="dash-metrics">
-
-          <Metric
-            icon="🔥"
-            title="Calories"
-            value={`${data.caloriesConsumed || 0} kcal`}
-            text={data.calorieTarget == null ? "Target not calculated" : `${pct(data.caloriesConsumed, data.calorieTarget)}% of estimated goal`}
+        <section className="dash-summary">
+          <SummaryCard
+            label="Calories"
+            value={`${Math.round(calories)} kcal`}
+            target={calorieTarget}
+            used={calories}
+            targetText={calorieTarget ? `${Math.round(calorieTarget)} kcal target` : "No target yet"}
           />
 
-          <Metric
-            icon="💪"
-            title="Protein"
-            value={`${data.proteinConsumed || 0} g`}
-            text={remaining(proteinLeft, "g")}
+          <SummaryCard
+            label="Protein"
+            value={`${round(protein)} g`}
+            target={proteinTarget}
+            used={protein}
+            targetText={proteinTarget ? `${round(proteinTarget)} g target` : "No target yet"}
           />
 
-          <Metric
-            icon="💧"
-            title="Water"
-            value={`${data.waterConsumed || 0} L`}
-            text={remaining(waterLeft, "L")}
-            action={() =>
-              setShowWater(true)
-            }
+          <SummaryCard
+            label="Water"
+            value={`${round(water)} L`}
+            target={waterTarget}
+            used={water}
+            targetText={waterTarget ? `${round(waterTarget)} L target` : "No target yet"}
           />
 
-          <Metric
-            icon="⚖️"
-            title="BMI"
-            value={data.bmi || "-"}
-            text={data.bmiCategory || "Not available"}
-          />
-
+          <div className="dash-stat">
+            <span>BMI</span>
+            <strong>{data.bmi ?? "--"}</strong>
+            <small>{data.bmiCategory || "Complete your profile"}</small>
+          </div>
         </section>
 
-        <p className="dash-muted">
-          {data.nutritionIncomplete
-            ? "Some logged foods have missing values or provenance. These totals include available values only. "
-            : "Totals use available values from logged foods and may be incomplete when a source omits nutrients. "}
-          Daily targets are estimates calculated from your profile.
-        </p>
-
-        {/* CHARTS */}
-
-        <section className="dash-grid">
-
-          <div className="dash-card">
-
-            <h3>
-              Weekly Calories
-            </h3>
-
-            <div className="dash-bars">
-
-              {weekly.map(
-                ([day, value]) => (
-
-                  <div key={day}>
-
-                    <small>
-                      {Math.round(value)}
-                    </small>
-
-                    <span
-                      style={{
-                        height: value
-                          ? `${Math.max(
-                              12,
-                              (value / max) * 130
-                            )}px`
-                          : "4px"
-                      }}
-                    />
-
-                    <small>
-                      {day}
-                    </small>
-
-                  </div>
-
-                )
-              )}
-
+        <section className="dash-layout">
+          <article className="dash-panel macro-panel">
+            <div className="panel-heading">
+              <div>
+                <small>DAILY MACROS</small>
+                <h2>Macro balance</h2>
+              </div>
+              <span>{Math.round(macroCalories)} kcal from macros</span>
             </div>
 
-          </div>
-
-          <div className="dash-card">
-
-            <h3>
-              Today's Macros
-            </h3>
-
-            <div className="dash-macros">
-
+            <div className="macro-content">
               <div
-                className="dash-donut"
+                className="macro-donut"
                 style={{
-                  background: `conic-gradient(
-                    #749c65 0 ${carbPct}%,
-                    #91b2a0 ${carbPct}% ${
-                      carbPct + proteinPct
-                    }%,
-                    #d9a66c ${
-                      carbPct + proteinPct
-                    }% 100%
-                  )`
+                  "--carbs": `${carbPct}%`,
+                  "--protein": `${carbPct + proteinPct}%`
                 }}
               >
-
-                <span>
-                  {data.caloriesConsumed || 0}
-                  <small>
-                    kcal
-                  </small>
-                </span>
-
+                <div>
+                  <strong>{Math.round(calories)}</strong>
+                  <small>kcal today</small>
+                </div>
               </div>
 
+              <div className="macro-legend">
+                <MacroRow label="Carbohydrates" value={carbs} percent={carbPct} type="carbs" />
+                <MacroRow label="Protein" value={protein} percent={proteinPct} type="protein" />
+                <MacroRow label="Fat" value={fat} percent={fatPct} type="fat" />
+              </div>
+            </div>
+          </article>
+
+          <article className="dash-panel week-panel">
+            <div className="panel-heading">
               <div>
-
-                <p>
-                  Carbs{" "}
-                  <b>{carbs}g</b>
-                </p>
-
-                <p>
-                  Protein{" "}
-                  <b>{protein}g</b>
-                </p>
-
-                <p>
-                  Fat{" "}
-                  <b>{fat}g</b>
-                </p>
-
+                <small>LAST 7 DAYS</small>
+                <h2>Weekly energy</h2>
               </div>
-
             </div>
 
-          </div>
-
+            <div className="week-chart">
+              {weekly.length === 0 ? (
+                <p>No nutrition history yet.</p>
+              ) : (
+                weekly.map(([day, value]) => (
+                  <div className="week-item" key={day}>
+                    <span className="week-value">{Math.round(n(value))}</span>
+                    <div className="week-bar-track">
+                      <span style={{ height: `${Math.max(5, n(value) / maxWeek * 100)}%` }} />
+                    </div>
+                    <small>{day}</small>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
         </section>
 
-        {/* LOWER SECTION */}
-
-        <section className="dash-bottom">
-
-          {/* TODAY'S MEALS */}
-
-          <div className="dash-card">
-
-            <div className="dash-title">
-
-              <h3>
-                Today's Meals
-              </h3>
-
-              <button
-                onClick={() =>
-                  setShowFood(true)
-                }
-              >
-                ＋ Add
+        <section className="dash-lower">
+          <article className="dash-panel meals-panel">
+            <div className="panel-heading">
+              <div>
+                <small>MEAL LOG</small>
+                <h2>Today's meals</h2>
+              </div>
+              <button className="bubble-small" onClick={() => setFoodOpen(true)}>
+                Add food
               </button>
-
             </div>
 
             {!data.todayMeals?.length ? (
-
-              <p className="dash-muted">
-                No meals logged yet.
-              </p>
-
+              <div className="dash-no-meals">
+                <p>No meals logged yet.</p>
+                <button onClick={() => setFoodOpen(true)}>Log your first meal</button>
+              </div>
             ) : (
-
-              data.todayMeals.map(
-                meal => (
-
-                  <div
-                    className="dash-meal"
-                    key={meal.id}
-                  >
-
+              <div className="meal-list">
+                {data.todayMeals.map((meal, index) => (
+                  <div className="meal-row" key={meal.id || index}>
                     <div>
-
-                      <strong>
-                        {format(
-                          meal.mealType
-                        )}
-                      </strong>
-
-                      <small>
-                        {meal.foodName}
-                      </small>
-                      <FoodSource food={meal} linked />
-
+                      <small>{format(meal.mealType)}</small>
+                      <strong>{meal.foodName}</strong>
+                      <FoodSource food={meal} />
                     </div>
 
-                    <b>
-                      {nutritionValue(meal.calories, "kcal")}
-                    </b>
-
+                    <div className="meal-nutrition">
+                      <span>{nutrition(meal.calories, "kcal")}</span>
+                      <span>{nutrition(meal.protein, "g protein")}</span>
+                    </div>
                   </div>
-
-                )
-              )
-
+                ))}
+              </div>
             )}
+          </article>
 
-          </div>
+          <article className="dash-panel target-panel">
+            <small>DAILY PROGRESS</small>
+            <h2>Remaining today</h2>
 
-          {/* FOCUS */}
-
-          <div className="dash-card dash-focus">
-
-            <h3>
-              Your Focus Today 🌱
-            </h3>
-
-            <p>
-              💪{" "}
-              <span>
-                {remaining(proteinLeft, "g protein")}
-              </span>
-            </p>
-            <p>{remaining(waterLeft, "L water")}</p>
-            <p>{remaining(caloriesLeft, "kcal")}</p>
-
-            <button
-              onClick={() =>
-                navigate("/chat")
-              }
-            >
-              Ask Nutri for suggestions →
-            </button>
-
-          </div>
-
-        </section>
-
-      </main>
-
-      {/* WATER MODAL */}
-
-      {showWater && (
-
-        <Modal
-          title="💧 Log Water"
-          close={() =>
-            !saving && setShowWater(false)
-          }
-        >
-
-          {error && <p role="alert">{error}</p>}
-
-          <div className="dash-input">
-
-            <input
-              type="number"
-              placeholder="350"
-              value={waterMl}
-              onChange={event =>
-                setWaterMl(
-                  event.target.value
-                )
-              }
+            <Remaining
+              label="Energy"
+              value={remaining(calorieTarget, calories, "kcal")}
             />
 
-            <span>
-              mL
-            </span>
+            <Remaining
+              label="Protein"
+              value={remaining(proteinTarget, protein, "g")}
+            />
 
-          </div>
+            <Remaining
+              label="Water"
+              value={remaining(waterTarget, water, "L")}
+            />
 
-          <button
-            className="dash-save"
-            onClick={logWater}
-            disabled={Boolean(saving)}
-          >
-            {saving === "water" ? "Adding..." : "Add Water"}
-          </button>
+            <button onClick={() => navigate("/chat")}>
+              Get meal suggestions
+            </button>
+          </article>
+        </section>
+      </main>
 
-        </Modal>
+      {waterOpen && (
+        <div className="dash-overlay" onMouseDown={e => e.target === e.currentTarget && setWaterOpen(false)}>
+          <section className="dash-modal">
+            <div className="modal-head">
+              <h2>Log water</h2>
+              <button onClick={() => setWaterOpen(false)}>Close</button>
+            </div>
 
+            <label>Amount</label>
+            <div className="dash-input-row">
+              <input
+                type="number"
+                min="1"
+                placeholder="350"
+                value={waterMl}
+                onChange={e => setWaterMl(e.target.value)}
+              />
+              <span>mL</span>
+            </div>
+
+            <button className="modal-save" onClick={logWater} disabled={saving === "water"}>
+              {saving === "water" ? "Saving..." : "Add water"}
+            </button>
+          </section>
+        </div>
       )}
 
-      {/* FOOD MODAL */}
+      {foodOpen && (
+        <div className="dash-overlay" onMouseDown={e => e.target === e.currentTarget && closeFood()}>
+          <section className="dash-modal food-modal">
+            <div className="modal-head">
+              <h2>{selectedFood ? "Add meal" : "Find a food"}</h2>
+              <button onClick={closeFood}>Close</button>
+            </div>
 
-      {showFood && (
+            {!selectedFood ? (
+              <>
+                <div className="food-search">
+                  <input
+                    value={query}
+                    placeholder="Search food or product"
+                    onChange={e => setQuery(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && searchFood()}
+                  />
+                  <button onClick={searchFood} disabled={searching || !query.trim()}>
+                    {searching ? "Searching..." : "Search"}
+                  </button>
+                </div>
 
-        <Modal
-          title="🍽️ Add Food"
-          close={() => !saving && closeFood()}
-        >
+                {searched && !results.length && <p>No matching foods found.</p>}
 
-          {error && <p role="alert">{error}</p>}
-          {!selectedFood ? (
+                <div className="food-results">
+                  {results.map((food, index) => (
+                    <button
+                      key={`${food.source}-${food.sourceId}-${index}`}
+                      onClick={() => setSelectedFood(food)}
+                    >
+                      <div>
+                        <strong>{food.foodName}</strong>
+                        <FoodSource food={food} />
+                      </div>
+                      <span>{nutrition(food.calories, "kcal")}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="selected-food">
+                <div className="selected-food-head">
+                  <div>
+                    <small>SELECTED FOOD</small>
+                    <h3>{selectedFood.foodName}</h3>
+                    <FoodSource food={selectedFood} />
+                  </div>
+                  <button onClick={() => setSelectedFood(null)}>Change</button>
+                </div>
 
-            <>
+                <label>Meal</label>
+                <select value={mealType} onChange={e => setMealType(e.target.value)}>
+                  <option value="BREAKFAST">Breakfast</option>
+                  <option value="LUNCH">Lunch</option>
+                  <option value="DINNER">Dinner</option>
+                  <option value="SNACK">Snack</option>
+                </select>
 
-              <div className="dash-search">
-
-                <input
-                  placeholder="Search food or brand..."
-                  value={query}
-                  onChange={event =>
-                    updateQuery(event.target.value)
-                  }
-                  onKeyDown={event => {
-                    if (
-                      event.key === "Enter"
-                    ) {
-                      searchFood();
-                    }
-                  }}
-                />
+                <label>Quantity</label>
+                <div className="dash-input-row">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="100"
+                    value={grams}
+                    onChange={e => setGrams(e.target.value)}
+                  />
+                  <span>g</span>
+                </div>
 
                 <button
-                  onClick={searchFood}
-                  disabled={searching || !query.trim()}
+                  className="ask-food"
+                  onClick={() => navigate("/chat", {
+                    state: {
+                      food: {
+                        foodName: selectedFood.foodName,
+                        source: selectedFood.source,
+                        sourceId: selectedFood.sourceId
+                      }
+                    }
+                  })}
                 >
-                  {searching ? "Searching..." : "Search"}
+                  Ask Nutri about this food
                 </button>
 
+                <button className="modal-save" onClick={logFood} disabled={saving === "food"}>
+                  {saving === "food" ? "Adding..." : "Add to meal log"}
+                </button>
               </div>
-
-              {searched && results.length === 0 && <p role="status">No foods found. Try another search.</p>}
-              <div className="dash-results">
-
-                {results.map(
-                  food => (
-
-                    <button
-                      key={
-                        `${food.source}:${food.sourceId}`
-                      }
-                      onClick={() =>
-                        setSelectedFood(
-                          food
-                        )
-                      }
-                    >
-
-                      <strong>
-                        {food.foodName}
-                      </strong>
-
-                      <small>
-                        {nutritionValue(food.calories, "kcal")} / {food.servingSize ?? "Unknown"}{food.servingUnit || ""}
-                      </small>
-                      <FoodSource food={food} />
-
-                    </button>
-
-                  )
-                )}
-
-              </div>
-
-            </>
-
-          ) : (
-
-            <>
-
-              <div className="dash-selected">
-
-                <b>
-                  {selectedFood.foodName}
-                </b>
-
-                <small>
-                  {nutritionValue(selectedFood.calories, "kcal")} / {selectedFood.servingSize ?? "Unknown"}{selectedFood.servingUnit || ""}
-                </small>
-
-              </div>
-
-              <FoodSource food={selectedFood} linked />
-              <button type="button" onClick={() => navigate("/chat", {
-                state: { food: { source: selectedFood.source, sourceId: selectedFood.sourceId, foodName: selectedFood.foodName } }
-              })}>
-                Ask about this food
-              </button>
-
-              <select
-                value={mealType}
-                onChange={event =>
-                  setMealType(
-                    event.target.value
-                  )
-                }
-              >
-
-                <option value="BREAKFAST">
-                  Breakfast
-                </option>
-
-                <option value="LUNCH">
-                  Lunch
-                </option>
-
-                <option value="DINNER">
-                  Dinner
-                </option>
-
-                <option value="SNACK">
-                  Snack
-                </option>
-
-              </select>
-
-              <div className="dash-input">
-
-                <input
-                  type="number"
-                  placeholder="Quantity"
-                  value={grams}
-                  onChange={event =>
-                    setGrams(
-                      event.target.value
-                    )
-                  }
-                />
-
-                <span>
-                  g
-                </span>
-
-              </div>
-
-              <button
-                className="dash-save"
-                onClick={logFood}
-                disabled={Boolean(saving)}
-              >
-                {saving === "food" ? "Adding..." : "Add Meal"}
-              </button>
-
-            </>
-
-          )}
-
-        </Modal>
-
+            )}
+          </section>
+        </div>
       )}
-
     </div>
   );
 }
 
+function SummaryCard({ label, value, target, used, targetText }) {
+  const progress = target ? Math.min(100, Math.round((used / target) * 100)) : 0;
 
-// =========================================================
-// METRIC COMPONENT
-// =========================================================
-
-function Metric({
-  icon,
-  title,
-  value,
-  text,
-  action
-}) {
   return (
-    <div className="dash-metric">
-
-      <span>
-        {icon}
-      </span>
-
-      <small>
-        {title}
-      </small>
-
-      <h2>
-        {value}
-      </h2>
-
-      <p>
-        {text}
-      </p>
-
-      {action && (
-        <button onClick={action}>
-          ＋ Log
-        </button>
-      )}
-
+    <div className="dash-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{targetText}</small>
+      <div className="stat-track">
+        <span style={{ width: `${progress}%` }} />
+      </div>
     </div>
   );
 }
 
-
-// =========================================================
-// MODAL COMPONENT
-// =========================================================
-
-function Modal({
-  title,
-  close,
-  children
-}) {
-  const dialogRef = useRef(null);
-  const titleId = useId();
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
-
+function MacroRow({ label, value, percent, type }) {
   return (
-      <dialog
-        ref={dialogRef}
-        className="dash-modal"
-        aria-labelledby={titleId}
-        onCancel={event => { event.preventDefault(); close(); }}
-      >
-
-        <button
-          className="dash-close"
-          aria-label="Close dialog"
-          onClick={close}
-        >
-          ✕
-        </button>
-
-        <h2 id={titleId}>
-          {title}
-        </h2>
-
-        {children}
-
-      </dialog>
+    <div className="macro-row">
+      <i className={type} />
+      <div>
+        <span>{label}</span>
+        <small>{percent}% of macro calories</small>
+      </div>
+      <strong>{round(value)} g</strong>
+    </div>
   );
 }
 
-function nutritionValue(value, unit) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? `${Math.round(value * 100) / 100} ${unit}`
-    : "Value unavailable";
+function Remaining({ label, value }) {
+  return (
+    <div className="remaining-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }
 
-function FoodSource({ food, linked = false }) {
-  const authoritative = food.source === "USDA FoodData Central" &&
-    food.sourceType === "AUTHORITATIVE_DATABASE" && food.verified === true &&
-    food.estimated === false && /^\d+$/.test(String(food.sourceId || ""));
-  const product = food.source === "Open Food Facts" && food.sourceType === "PRODUCT_DATABASE";
-  const sourceUrl = authoritative
-    ? `https://fdc.nal.usda.gov/food-details/${encodeURIComponent(food.sourceId)}/nutrients`
-    : product && /^\d+$/.test(String(food.sourceId || ""))
-      ? `https://world.openfoodfacts.org/product/${encodeURIComponent(food.sourceId)}` : null;
+function FoodSource({ food }) {
   return (
     <small className="food-source">
-      <span>{authoritative ? "Authoritative government data" : product ? "Non-government product database" : "Source not verified."}</span>
-      <span>{food.source || "Unknown source"}{food.sourceId ? ` - ID: ${food.sourceId}` : " - no source ID"}</span>
-      {linked && sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">View source record</a>}
+      {food?.source || "Source unavailable"}
+      {food?.sourceId ? ` · ID ${food.sourceId}` : ""}
     </small>
   );
+}
+
+function DashboardLoader() {
+  return (
+    <div className="dash-empty">
+      <h2>Loading your dashboard...</h2>
+    </div>
+  );
+}
+
+const n = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const optional = value => value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+const round = value => Math.round(n(value) * 10) / 10;
+
+function remaining(target, used, unit) {
+  if (target == null) return "Target not set";
+  return `${round(Math.max(0, target - used))} ${unit}`;
+}
+
+function nutrition(value, unit) {
+  return Number.isFinite(Number(value)) ? `${round(value)} ${unit}` : "N/A";
+}
+
+function format(value) {
+  if (!value) return "Meal";
+  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }

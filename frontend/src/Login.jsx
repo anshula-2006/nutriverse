@@ -1,8 +1,15 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+
 import authFood from "./assets/images/auth-food.jpg";
 import "./styles/Auth.css";
-import { API_URL, readResponse, saveSession } from "./api.js";
+
+import {
+  API_URL,
+  apiFetch,
+  readResponse,
+  saveSession
+} from "./api.js";
 
 function Login() {
   const navigate = useNavigate();
@@ -11,34 +18,47 @@ function Login() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
   const submittingRef = useRef(false);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
+
     if (submittingRef.current) return;
+
     submittingRef.current = true;
     setSubmitting(true);
     setMessage("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/auth/login`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username,
+            password
+          })
         }
       );
 
-      const data = await readResponse(response, "Could not sign in");
-      saveSession(data);
+      const data = await readResponse(
+        response,
+        "Could not sign in"
+      );
 
+      saveSession(data);
       navigate("/dashboard");
 
     } catch (error) {
-      setMessage(error instanceof TypeError
-        ? "Could not connect to the server. Please try again."
-        : error.message || "Could not sign in. Please try again.");
+      setMessage(
+        error?.message ||
+        "Could not sign in. Please try again."
+      );
+
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -50,78 +70,100 @@ function Login() {
 
       <div className="auth-card">
 
-        <div className="auth-image">
-          <img src={authFood} alt="Healthy nutritious foods" />
+        <section className="auth-image">
+          <img
+            src={authFood}
+            alt="Fresh ingredients prepared for a balanced meal"
+          />
 
           <div className="auth-image-text">
-            <span>🌿 NUTRIVERSE</span>
+            <span>NUTRIVERSE</span>
 
             <h1>
-              Nourish better.
+              Nutrition guidance
               <br />
-              Feel better.
+              grounded in evidence.
             </h1>
 
             <p>
-              Personalized nutrition that understands
-              your goals and preferences.
+              Search verified food data, understand nutrition
+              values, and get recommendations shaped by your
+              dietary profile.
             </p>
           </div>
-        </div>
+        </section>
 
 
-        <div className="auth-form-side">
+        <section className="auth-form-side">
 
           <div className="auth-form">
 
             <div className="auth-brand">
-              🌿 Nutri<span>Verse</span>
+              NutriVerse
             </div>
 
-            <h2>Welcome back</h2>
+            <h2>Sign in</h2>
 
             <p className="auth-subtitle">
-              Continue your nutrition journey.
+              Access your nutrition profile and continue
+              your previous conversations.
             </p>
 
 
             <form onSubmit={handleSubmit}>
 
-              <label htmlFor="login-username">Username</label>
+              <label htmlFor="login-username">
+                Username
+              </label>
 
               <input
-                type="text"
-                placeholder="Enter your username"
                 id="login-username"
+                type="text"
+                placeholder="Enter username"
                 autoComplete="username"
                 value={username}
-                onChange={e => setUsername(e.target.value)}
+                onChange={event =>
+                  setUsername(event.target.value)
+                }
                 required
               />
 
 
-              <label htmlFor="login-password">Password</label>
+              <label htmlFor="login-password">
+                Password
+              </label>
 
               <input
-                type="password"
-                placeholder="Enter your password"
                 id="login-password"
+                type="password"
+                placeholder="Enter password"
                 autoComplete="current-password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={event =>
+                  setPassword(event.target.value)
+                }
                 required
               />
 
 
               {message && (
-                <p className="auth-error" role="alert">
+                <p
+                  className="auth-error"
+                  role="alert"
+                >
                   {message}
                 </p>
               )}
 
 
-              <button className="auth-submit" type="submit" disabled={submitting}>
-                {submitting ? "Signing in..." : "Sign In →"}
+              <button
+                className="auth-submit"
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Signing in..."
+                  : "Sign in"}
               </button>
 
             </form>
@@ -137,7 +179,7 @@ function Login() {
 
           </div>
 
-        </div>
+        </section>
 
       </div>
 

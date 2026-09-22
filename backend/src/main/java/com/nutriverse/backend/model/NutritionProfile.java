@@ -11,24 +11,28 @@ public class NutritionProfile {
 
     private String userId;
 
-    // User profile
+    // Basic profile
     private Integer age;
     private Double height;
     private Double weight;
     private String gender;
 
-    // Nutrition preferences
+    // Nutrition profile
     private String dietType;
     private String activityLevel;
     private String goal;
     private String foodPreferences;
     private String foodDislikes;
 
-    // Primary medical/dietary focus
-    // CELIAC -> stored as GLUTEN_FREE dietary restriction.
+    // Medical restriction
+    // Example: GLUTEN_FREE for celiac users
     private String dietaryRestriction;
 
-    // Backend-calculated daily targets
+    // Cultural / religious dietary preference
+    // NONE, JAIN, HALAL, KOSHER
+    private String religiousDiet;
+
+    // Daily targets
     private Integer dailyCalorieTarget;
     private Integer dailyProteinTarget;
     private Double dailyWaterTarget;
@@ -130,6 +134,14 @@ public class NutritionProfile {
 
     public void setDietaryRestriction(String dietaryRestriction) {
         this.dietaryRestriction = dietaryRestriction;
+    }
+
+    public String getReligiousDiet() {
+        return religiousDiet;
+    }
+
+    public void setReligiousDiet(String religiousDiet) {
+        this.religiousDiet = religiousDiet;
     }
 
     public Integer getDailyCalorieTarget() {

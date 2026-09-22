@@ -4,28 +4,12 @@ public class NutritionResult {
 
     private String foodName;
 
-    // Reference serving used by the nutrition provider
+    // Reference serving
     private Double servingSize;
     private String servingUnit;
 
-
-    // =========================================================
-    // NUTRITION
-    //
-    // calories        -> kcal
-    // protein         -> g
-    // carbs           -> g
-    // fat             -> g
-    // fiber           -> g
-    //
-    // iron            -> mg
-    // calcium         -> mg
-    // sodium          -> mg
-    // potassium       -> mg
-    // =========================================================
-
+    // Nutrition
     private Double calories;
-
     private Double protein;
     private Double carbs;
     private Double fat;
@@ -36,11 +20,7 @@ public class NutritionResult {
     private Double sodium;
     private Double potassium;
 
-
-    // =========================================================
-    // SOURCE / PROVENANCE
-    // =========================================================
-
+    // Source / provenance
     private String sourceType;
     private String source;
     private String sourceId;
@@ -48,13 +28,22 @@ public class NutritionResult {
 
     private boolean verified;
     private boolean estimated;
-
     private Double confidence;
 
+    // Ingredient information
+    private String ingredients;
+
+    // Dietary screening
+    // PASS = no obvious conflicting ingredient detected
+    // CONFLICT = conflicting ingredient detected
+    // UNKNOWN = insufficient information
+    private String jainStatus;
+    private String halalStatus;
+    private String kosherStatus;
+    private String glutenStatus;
 
     public NutritionResult() {
     }
-
 
     public String getFoodName() {
         return foodName;
@@ -64,7 +53,6 @@ public class NutritionResult {
         this.foodName = foodName;
     }
 
-
     public Double getServingSize() {
         return servingSize;
     }
@@ -72,7 +60,6 @@ public class NutritionResult {
     public void setServingSize(Double servingSize) {
         this.servingSize = servingSize;
     }
-
 
     public String getServingUnit() {
         return servingUnit;
@@ -82,7 +69,6 @@ public class NutritionResult {
         this.servingUnit = servingUnit;
     }
 
-
     public Double getCalories() {
         return calories;
     }
@@ -90,7 +76,6 @@ public class NutritionResult {
     public void setCalories(Double calories) {
         this.calories = calories;
     }
-
 
     public Double getProtein() {
         return protein;
@@ -100,7 +85,6 @@ public class NutritionResult {
         this.protein = protein;
     }
 
-
     public Double getCarbs() {
         return carbs;
     }
@@ -108,7 +92,6 @@ public class NutritionResult {
     public void setCarbs(Double carbs) {
         this.carbs = carbs;
     }
-
 
     public Double getFat() {
         return fat;
@@ -118,7 +101,6 @@ public class NutritionResult {
         this.fat = fat;
     }
 
-
     public Double getFiber() {
         return fiber;
     }
@@ -126,7 +108,6 @@ public class NutritionResult {
     public void setFiber(Double fiber) {
         this.fiber = fiber;
     }
-
 
     public Double getIron() {
         return iron;
@@ -136,7 +117,6 @@ public class NutritionResult {
         this.iron = iron;
     }
 
-
     public Double getCalcium() {
         return calcium;
     }
@@ -144,7 +124,6 @@ public class NutritionResult {
     public void setCalcium(Double calcium) {
         this.calcium = calcium;
     }
-
 
     public Double getSodium() {
         return sodium;
@@ -154,7 +133,6 @@ public class NutritionResult {
         this.sodium = sodium;
     }
 
-
     public Double getPotassium() {
         return potassium;
     }
@@ -162,7 +140,6 @@ public class NutritionResult {
     public void setPotassium(Double potassium) {
         this.potassium = potassium;
     }
-
 
     public String getSourceType() {
         return sourceType;
@@ -172,7 +149,6 @@ public class NutritionResult {
         this.sourceType = sourceType;
     }
 
-
     public String getSource() {
         return source;
     }
@@ -181,9 +157,12 @@ public class NutritionResult {
         this.source = source;
     }
 
-
     public String getSourceId() {
         return sourceId;
+    }
+
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
     }
 
     public String getDataType() {
@@ -194,11 +173,6 @@ public class NutritionResult {
         this.dataType = dataType;
     }
 
-    public void setSourceId(String sourceId) {
-        this.sourceId = sourceId;
-    }
-
-
     public boolean isVerified() {
         return verified;
     }
@@ -206,7 +180,6 @@ public class NutritionResult {
     public void setVerified(boolean verified) {
         this.verified = verified;
     }
-
 
     public boolean isEstimated() {
         return estimated;
@@ -216,12 +189,50 @@ public class NutritionResult {
         this.estimated = estimated;
     }
 
-
     public Double getConfidence() {
         return confidence;
     }
 
     public void setConfidence(Double confidence) {
         this.confidence = confidence;
+    }
+
+    public String getIngredients() {
+        return ingredients;
+    }
+
+    public void setIngredients(String ingredients) {
+        this.ingredients = ingredients;
+    }
+
+    public String getJainStatus() {
+        return jainStatus;
+    }
+
+    public void setJainStatus(String jainStatus) {
+        this.jainStatus = jainStatus;
+    }
+
+    public String getHalalStatus() {
+        return halalStatus;
+    }
+
+    public void setHalalStatus(String halalStatus) {
+        this.halalStatus = halalStatus;
+    }
+
+    public String getKosherStatus() {
+        return kosherStatus;
+    }
+
+    public void setKosherStatus(String kosherStatus) {
+        this.kosherStatus = kosherStatus;
+    }
+
+    public String getGlutenStatus() {
+        return glutenStatus;
+    }
+    public void setGlutenStatus(String glutenStatus) {
+        this.glutenStatus = glutenStatus;
     }
 }

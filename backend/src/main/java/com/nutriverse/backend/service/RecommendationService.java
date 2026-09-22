@@ -3,10 +3,9 @@ package com.nutriverse.backend.service;
 import com.nutriverse.backend.dto.ChatHistoryItem;
 import com.nutriverse.backend.dto.NutritionResult;
 import com.nutriverse.backend.dto.RecommendationResponse;
-import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.model.ChatMessage;
+import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,651 +16,300 @@ import java.util.*;
 public class RecommendationService {
 
     private static final int CANDIDATE_LIMIT = 12;
+    private static final int RESULT_LIMIT = 3;
+    private static final double MIN_PROTEIN = 8.0;
 
-    // Product ranking criterion for per-100 g USDA records; not a regulatory label claim.
-    private static final double MIN_PROTEIN_GRAMS_PER_100G = 8.0;
-
-    private static final Set<String> GLUTEN_RISK_WORDS = Set.of(
-            "wheat", "barley", "rye", "malt", "semolina",
-            "bulgur", "couscous", "seitan", "spelt",
-            "farro", "triticale", "oat", "oats", "oatmeal"
+    private static final Set<String> GLUTEN = Set.of(
+            "wheat", "barley", "rye", "malt", "semolina", "bulgur",
+            "couscous", "seitan", "spelt", "farro", "triticale",
+            "oats", "maida", "bread", "breadcrumbs"
     );
 
-    private static final Set<String> MEAT_WORDS = Set.of(
+    private static final Set<String> MEAT = Set.of(
             "chicken", "turkey", "beef", "pork", "lamb", "mutton",
-            "fish", "salmon", "tuna", "sardine", "shrimp", "prawn",
-            "crab", "lobster", "meat", "ham", "bacon", "sausage",
-            "poultry", "seafood", "duck", "goose", "venison", "goat",
-            "cod", "haddock", "trout", "anchovy", "anchovies", "sardines",
-            "prawns", "shellfish", "clam", "clams", "mussel",
-            "mussels", "oyster", "oysters", "scallop", "scallops", "squid"
+            "fish", "salmon", "tuna", "shrimp", "prawn", "crab",
+            "lobster", "meat", "ham", "bacon", "sausage",
+            "seafood", "duck", "goat", "shellfish"
     );
 
-    private static final Set<String> ANIMAL_PRODUCT_WORDS = Set.of(
+    private static final Set<String> ANIMAL = Set.of(
             "egg", "eggs", "milk", "cheese", "yogurt", "curd",
-            "paneer", "butter", "ghee", "cream", "whey", "yoghurt",
-            "casein", "buttermilk", "kefir", "dairy"
+            "paneer", "butter", "ghee", "cream", "whey", "dairy"
     );
 
-    private final NutritionProfileRepository profileRepository;
-    private final NutritionLookupService nutritionLookupService;
-    private final ProfileExtractionService profileExtractionService;
-    private final GroqService groqService;
-    private final ChatMemory chatMemory;
+    private final NutritionProfileRepository profiles;
+    private final NutritionLookupService lookup;
+    private final ProfileExtractionService extraction;
+    private final GroqService groq;
+    private final ChatMemory memory;
 
     public RecommendationService(
-            NutritionProfileRepository profileRepository,
-            NutritionLookupService nutritionLookupService,
-            ProfileExtractionService profileExtractionService,
-            GroqService groqService,
-            ChatMemory chatMemory
+            NutritionProfileRepository profiles,
+            NutritionLookupService lookup,
+            ProfileExtractionService extraction,
+            GroqService groq,
+            ChatMemory memory
     ) {
-        this.profileRepository = profileRepository;
-        this.nutritionLookupService = nutritionLookupService;
-        this.profileExtractionService = profileExtractionService;
-        this.groqService = groqService;
-        this.chatMemory = chatMemory;
-    }
-
-    public boolean isStructuredFollowup(String userId, String request) {
-        if (!GroqService.isAlternativeFollowup(request)
-                || GroqService.isRecipeRequest(request)) {
-            return false;
-        }
-
-        List<ChatMessage> history = chatMemory.getRecentMessages(userId);
-
-        for (int i = history.size() - 1; i >= 0; i--) {
-            ChatMessage message = history.get(i);
-
-            if ("assistant".equals(message.getRole())) {
-                return message.getRecommendation() != null;
-            }
-
-            if ("user".equals(message.getRole())) {
-                return false;
-            }
-        }
-
-        return false;
+        this.profiles = profiles;
+        this.lookup = lookup;
+        this.extraction = extraction;
+        this.groq = groq;
+        this.memory = memory;
     }
 
     public List<ChatHistoryItem> getChatHistory(String userId) {
-        return chatMemory.getRecentMessages(userId).stream()
-                .map(message -> new ChatHistoryItem(
-                        message.getRole(),
-                        message.getContent(),
-                        message.getRecommendation()
-                ))
+        return memory.getRecentMessages(userId).stream()
+                .map(m -> new ChatHistoryItem(
+                        m.getRole(), m.getContent(), m.getRecommendation()))
                 .toList();
     }
 
     public long clearChatHistory(String userId) {
-        return chatMemory.clearHistory(userId);
+        extraction.clearPendingState(userId);
+        return memory.clearHistory(userId);
     }
 
-    public RecommendationResponse recommend(
-            String userId,
-            String request
-    ) {
-        if (request == null || request.isBlank()) {
-            return new RecommendationResponse(
-                    "EVIDENCE_STRUCTURED",
-                    "NOT_SPECIFIED",
-                    "NOT_SPECIFIED",
-                    List.of()
-            );
+    public boolean isStructuredFollowup(String userId, String request) {
+        if (!GroqService.isAlternativeFollowup(request)
+                || GroqService.isRecipeRequest(request)) return false;
+
+        List<ChatMessage> history = memory.getRecentMessages(userId);
+
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatMessage m = history.get(i);
+            if ("assistant".equals(m.getRole()))
+                return m.getRecommendation() != null;
+            if ("user".equals(m.getRole()))
+                return false;
         }
+        return false;
+    }
 
-        // Important: recommendation requests bypass /api/chat, so profile extraction
-        // must also happen here.
-        profileExtractionService.processUserMessage(userId, request);
+    public RecommendationResponse recommend(String userId, String request) {
+        if (request == null || request.isBlank()) return empty();
 
-        NutritionProfile profile =
-                profileRepository.findByUserId(userId).orElse(null);
+        extraction.processUserMessage(userId, request);
 
-        List<ChatMessage> previous = chatMemory.getRecentRecommendations(userId);
+        NutritionProfile profile = profiles.findByUserId(userId).orElse(null);
+        List<ChatMessage> previous = memory.getRecentRecommendations(userId);
         boolean followup = GroqService.isAlternativeFollowup(request);
-        String resolvedRequest = followup && !previous.isEmpty()
-                ? previous.getLast().getRecommendationRequest() : request;
-        if (!resolvedRequest.equals(request) && !currentExclusions(request).isEmpty()) {
-            resolvedRequest += "\n" + request;
-        }
-        // Keep new exclusions/constraints supplied along with an alternative request.
-        String text = normalize(resolvedRequest + " " + request);
-        String diet = getDiet(profile, text);
-        String meal = getMeal(text);
 
-        boolean wantsProtein =
-                hasAny(text, "protein", "high protein",
-                        "post workout", "post-workout");
+        String resolved = resolveRequest(request, previous, followup);
+        String text = normalize(resolved + " " + request);
 
-        boolean wantsFiber =
-                hasAny(text, "fiber", "fibre",
-                        "high fiber", "high fibre");
+        String diet = diet(profile, text);
+        String meal = meal(text);
+        boolean glutenFree = glutenFree(profile, text);
+        String religiousDiet = profile == null ? null : profile.getReligiousDiet();
 
-        boolean glutenFree =
-                "GLUTEN_FREE".equals(
-                        profile == null
-                                ? null
-                                : profile.getDietaryRestriction()
-                )
-                        || hasAny(
-                        text,
-                        "celiac", "coeliac",
-                        "gluten free", "gluten-free",
-                        "can't eat gluten",
-                        "cannot eat gluten",
-                        "avoid gluten"
-                );
+        boolean proteinFocus = has(text, "protein", "high protein", "post workout");
+        boolean fiberFocus = has(text, "fiber", "fibre", "high fiber", "high fibre");
 
-        Set<String> excluded =
-                new LinkedHashSet<>();
+        Set<String> excluded = exclusions(profile, resolved, request);
+        Set<String> recentIds = new LinkedHashSet<>();
 
-        excluded.addAll(savedDislikes(profile));
-        excluded.addAll(currentExclusions(resolvedRequest));
-        excluded.addAll(currentExclusions(request));
+        if (followup)
+            addPrevious(previous, excluded, recentIds);
 
-        Set<String> recent = new LinkedHashSet<>();
-        if (followup) {
-            for (ChatMessage message : previous) {
-                for (var item : message.getRecommendation().getRecommendations()) {
-                    excluded.add(item.getWhat());
-                    if (item.getEvidence() != null) recent.add(item.getEvidence().getSourceId());
-                }
-            }
-        }
+        String prompt = resolved.equals(request)
+                ? request
+                : resolved + "\nFollow-up: " + request;
 
-        List<String> candidateNames =
-                groqService.generateFoodCandidates(
-                        userId,
-                        resolvedRequest.equals(request) ? request : resolvedRequest + "\nFollow-up: " + request,
-                        excluded,
-                        CANDIDATE_LIMIT
-                );
+        List<String> candidates = groq.generateFoodCandidates(
+                userId, prompt, excluded, CANDIDATE_LIMIT);
 
-        List<ScoredFood> foods = new ArrayList<>();
-        Set<String> seenSourceIds = new HashSet<>();
-        int failures = 0;
+        List<ScoredFood> ranked = rank(
+                candidates, profile, diet, glutenFree, religiousDiet,
+                proteinFocus, fiberFocus, excluded, recentIds);
 
-        for (String candidate : candidateNames) {
-
-            String cleanCandidate =
-                    cleanCandidate(candidate);
-
-            if (cleanCandidate == null) continue;
-
-            if (matchesAny(
-                    normalize(cleanCandidate),
-                    excluded)) {
-                continue;
-            }
-
-            if (!dietAllows(cleanCandidate, diet))
-                continue;
-
-            if (glutenFree
-                    && containsAnyWord(
-                    cleanCandidate,
-                    GLUTEN_RISK_WORDS)) {
-                continue;
-            }
-
-            try {
-                NutritionResult food =
-                        findBestVerified(cleanCandidate, diet, glutenFree, excluded, recent);
-
-                if (food == null
-                        || !seenSourceIds.add(
-                        food.getSourceId())) {
-                    continue;
-                }
-
-                if (wantsProtein && !meetsProteinFocus(food)) {
-                    continue;
-                }
-
-                double score =
-                        score(
-                                food,
-                                profile,
-                                wantsProtein,
-                                wantsFiber
-                        );
-
-                foods.add(
-                        new ScoredFood(
-                                cleanCandidate,
-                                food,
-                                score
-                        )
-                );
-
-            } catch (RuntimeException e) {
-                failures++;
-            }
-        }
-
-        foods.sort(
-                Comparator
-                        .comparingDouble(
-                                ScoredFood::score
-                        )
-                        .reversed()
-                        .thenComparing(
-                                item ->
-                                        item.food()
-                                                .getFoodName() == null
-                                                ? item.candidate()
-                                                : item.food()
-                                                .getFoodName()
-                        )
-        );
-
-        List<RecommendationResponse.RecommendationItem> result =
-                new ArrayList<>();
-
-        for (ScoredFood ranked : foods) {
-
-            if (result.size() == 3)
-                break;
-
-            try {
-                NutritionResult exact =
-                        nutritionLookupService.findBySourceId(
-                                ranked.food().getSource(),
-                                ranked.food().getSourceId()
-                        );
-
-                if (!isVerified(exact)
-                        || !allowedFood(exact, diet, glutenFree, excluded, recent)
-                        || wantsProtein && !meetsProteinFocus(exact))
-                    continue;
-
-                result.add(
-                        buildItem(
-                                ranked.candidate(),
-                                exact,
-                                profile,
-                                diet,
-                                meal,
-                                wantsProtein,
-                                wantsFiber,
-                                glutenFree
-                        )
-                );
-
-                // Exclude duplicate foods even when candidates resolve to different records.
-                excluded.add(exact.getFoodName());
-                recent.add(exact.getSourceId());
-
-            } catch (RuntimeException e) {
-                failures++;
-            }
-        }
-
-        if (result.isEmpty()
-                && failures > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "Verified nutrition evidence is temporarily unavailable."
-            );
-        }
+        List<RecommendationResponse.RecommendationItem> items = buildItems(
+                ranked, profile, diet, meal, glutenFree, religiousDiet,
+                proteinFocus, fiberFocus, excluded, recentIds);
 
         RecommendationResponse response = new RecommendationResponse(
                 "EVIDENCE_STRUCTURED",
-                diet == null
-                        ? "NOT_SPECIFIED"
-                        : diet,
-                profile == null
-                        || profile.getGoal() == null
-                        ? "NOT_SPECIFIED"
-                        : profile.getGoal(),
-                result
+                diet == null ? "NOT_SPECIFIED" : diet,
+                profile == null || profile.getGoal() == null
+                        ? "NOT_SPECIFIED" : profile.getGoal(),
+                items
         );
-        chatMemory.addRecommendation(userId, request, resolvedRequest, response);
+
+        memory.addRecommendation(userId, request, resolved, response);
         return response;
     }
 
-    private NutritionResult findBestVerified(
-            String candidate, String diet, boolean glutenFree,
-            Set<String> excluded, Set<String> recent
+    private List<ScoredFood> rank(
+            List<String> candidates,
+            NutritionProfile profile,
+            String diet,
+            boolean glutenFree,
+            String religiousDiet,
+            boolean proteinFocus,
+            boolean fiberFocus,
+            Set<String> excluded,
+            Set<String> recentIds
     ) {
-        List<NutritionResult> results =
-                nutritionLookupService.search(
-                        candidate
-                );
+        List<ScoredFood> ranked = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        int failures = 0;
 
-        if (results == null
-                || results.isEmpty()) {
-            return null;
+        for (String raw : candidates) {
+            String candidate = clean(raw);
+
+            if (candidate == null
+                    || matches(candidate, excluded)
+                    || !dietAllows(candidate, diet)
+                    || (glutenFree && contains(candidate, GLUTEN))) {
+                continue;
+            }
+
+            try {
+                NutritionResult food = findBest(
+                        candidate, diet, glutenFree,
+                        religiousDiet, excluded, recentIds);
+
+                if (food == null || !seen.add(food.getSourceId()))
+                    continue;
+
+                if (proteinFocus && !proteinEnough(food))
+                    continue;
+
+                ranked.add(new ScoredFood(
+                        candidate,
+                        food,
+                        score(food, profile, proteinFocus, fiberFocus)
+                ));
+            } catch (RuntimeException e) {
+                failures++;
+            }
         }
 
+        ranked.sort(Comparator.comparingDouble(ScoredFood::score).reversed());
+
+        if (ranked.isEmpty() && failures > 0)
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Verified nutrition evidence is temporarily unavailable.");
+
+        return ranked;
+    }
+
+    private NutritionResult findBest(
+            String candidate,
+            String diet,
+            boolean glutenFree,
+            String religiousDiet,
+            Set<String> excluded,
+            Set<String> recentIds
+    ) {
         NutritionResult best = null;
         int bestScore = -1;
 
-        for (NutritionResult food : results) {
-
-            if (!isVerified(food) || !allowedFood(food, diet, glutenFree, excluded, recent))
+        for (NutritionResult food : lookup.search(candidate)) {
+            if (!verified(food)
+                    || !allowed(food, diet, glutenFree,
+                    religiousDiet, excluded, recentIds)) {
                 continue;
+            }
 
-            int relevance =
-                    relevance(
-                            candidate,
-                            food.getFoodName()
-                    );
+            int score = relevance(candidate, food.getFoodName());
 
-            if (relevance > bestScore) {
+            if (score > bestScore) {
                 best = food;
-                bestScore = relevance;
+                bestScore = score;
             }
         }
-
-        return bestScore <= 0
-                ? null
-                : best;
+        return best;
     }
 
-    private int relevance(
-            String candidate,
-            String foodName
-    ) {
-        if (candidate == null
-                || foodName == null) {
-            return 0;
-        }
-
-        Set<String> candidateTokens =
-                meaningfulTokens(candidate);
-
-        Set<String> foodTokens =
-                meaningfulTokens(foodName);
-
-        int score = 0;
-
-        for (String token : candidateTokens) {
-            if (foodTokens.contains(token))
-                score += 3;
-        }
-
-        String a = normalize(candidate);
-        String b = normalize(foodName);
-
-        if (b.contains(a))
-            score += 8;
-
-        if (a.contains(b))
-            score += 4;
-
-        return score;
-    }
-
-    private Set<String> meaningfulTokens(
-            String value
-    ) {
-        Set<String> tokens =
-                new LinkedHashSet<>();
-
-        for (String token :
-                normalize(value).split(" ")) {
-
-            if (token.length() < 3)
-                continue;
-
-            if (Set.of(
-                    "cooked", "raw", "boiled",
-                    "with", "without", "and",
-                    "the", "prepared"
-            ).contains(token)) {
-                continue;
-            }
-
-            tokens.add(token);
-        }
-
-        return tokens;
-    }
-
-    private boolean isVerified(
-            NutritionResult food
-    ) {
-        return food != null
-                && "USDA FoodData Central".equals(
-                food.getSource())
-                && "AUTHORITATIVE_DATABASE".equals(
-                food.getSourceType())
-                && food.isVerified()
-                && !food.isEstimated()
-                && food.getSourceId() != null
-                && food.getSourceId()
-                .matches("[1-9][0-9]*")
-                && food.getServingSize() != null
-                && Double.isFinite(food.getServingSize())
-                && food.getServingSize() > 0
-                && "g".equals(
-                food.getServingUnit());
-    }
-
-    private String getDiet(
+    private List<RecommendationResponse.RecommendationItem> buildItems(
+            List<ScoredFood> ranked,
             NutritionProfile profile,
-            String text
+            String diet,
+            String meal,
+            boolean glutenFree,
+            String religiousDiet,
+            boolean proteinFocus,
+            boolean fiberFocus,
+            Set<String> excluded,
+            Set<String> recentIds
     ) {
-        String saved = profile == null ? null : profile.getDietType();
-        if ("VEGAN".equals(saved) || text.contains("vegan")) return "VEGAN";
-        if ("VEGETARIAN".equals(saved)) return "VEGETARIAN";
-        if (hasAny(
-                text,
-                "non vegetarian",
-                "nonveg",
-                "non veg"
-        )) {
-            return "NON_VEGETARIAN";
-        }
+        List<RecommendationResponse.RecommendationItem> items =
+                new ArrayList<>();
 
-        if (text.contains("vegan"))
-            return "VEGAN";
+        for (ScoredFood scored : ranked) {
+            if (items.size() >= RESULT_LIMIT) break;
 
-        if (text.contains("vegetarian"))
-            return "VEGETARIAN";
+            try {
+                NutritionResult food = lookup.findBySourceId(
+                        scored.food().getSource(),
+                        scored.food().getSourceId());
 
-        return profile == null
-                ? null
-                : profile.getDietType();
-    }
-
-    private String getMeal(String text) {
-
-        if (text.contains("breakfast"))
-            return "BREAKFAST";
-
-        if (text.contains("lunch"))
-            return "LUNCH";
-
-        if (text.contains("dinner"))
-            return "DINNER";
-
-        if (hasAny(
-                text,
-                "snack",
-                "snacks",
-                "evening snack"
-        )) {
-            return "SNACK";
-        }
-
-        return null;
-    }
-
-    private boolean dietAllows(
-            String candidate,
-            String diet
-    ) {
-        if (diet == null
-                || "NON_VEGETARIAN".equals(diet)) {
-            return true;
-        }
-
-        if (containsAnyWord(
-                candidate,
-                MEAT_WORDS)) {
-            return false;
-        }
-
-        if ("VEGAN".equals(diet)
-                && containsAnyWord(
-                candidate,
-                ANIMAL_PRODUCT_WORDS)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean allowedFood(NutritionResult food, String diet, boolean glutenFree,
-                                Set<String> excluded, Set<String> recent) {
-        String name = food.getFoodName();
-        return name != null && !name.isBlank()
-                && dietAllows(name, diet)
-                && (!glutenFree || !containsAnyWord(name, GLUTEN_RISK_WORDS))
-                && !matchesAny(normalize(name), excluded)
-                && !recent.contains(food.getSourceId());
-    }
-
-    private double score(
-            NutritionResult food,
-            NutritionProfile profile,
-            boolean wantsProtein,
-            boolean wantsFiber
-    ) {
-        double score = 0;
-
-        Double protein =
-                food.getProtein();
-
-        Double fiber =
-                food.getFiber();
-
-        Double calories =
-                food.getCalories();
-
-        if (wantsProtein
-                && valid(protein)) {
-            score += protein * 2;
-        }
-
-        if (wantsFiber
-                && valid(fiber)) {
-            score += fiber * 2;
-        }
-
-        if (profile != null
-                && profile.getGoal() != null) {
-
-            switch (profile.getGoal()) {
-
-                case "WEIGHT_LOSS" -> {
-                    if (valid(protein)
-                            && valid(calories)
-                            && calories > 0) {
-                        score +=
-                                (protein / calories)
-                                        * 300;
-                    }
-
-                    if (valid(fiber))
-                        score += fiber;
+                if (!verified(food)
+                        || !allowed(food, diet, glutenFree,
+                        religiousDiet, excluded, recentIds)
+                        || (proteinFocus && !proteinEnough(food))) {
+                    continue;
                 }
 
-                case "FITNESS",
-                     "WEIGHT_GAIN" -> {
-                    if (valid(protein))
-                        score += protein * 1.5;
-                }
+                items.add(item(
+                        scored.candidate(), food, profile,
+                        diet, meal, glutenFree, religiousDiet,
+                        proteinFocus, fiberFocus));
 
-                case "HEALTHY_EATING",
-                     "MAINTENANCE" -> {
-                    if (valid(protein))
-                        score += protein;
+                excluded.add(food.getFoodName());
+                recentIds.add(food.getSourceId());
 
-                    if (valid(fiber))
-                        score += fiber;
-                }
-
-                default -> {
-                }
+            } catch (RuntimeException ignored) {
             }
         }
-
-        return score;
+        return items;
     }
 
-    private RecommendationResponse.RecommendationItem buildItem(
+    private RecommendationResponse.RecommendationItem item(
             String candidate,
             NutritionResult food,
             NutritionProfile profile,
             String diet,
             String meal,
-            boolean protein,
-            boolean fiber,
-            boolean glutenFree
+            boolean glutenFree,
+            String religiousDiet,
+            boolean proteinFocus,
+            boolean fiberFocus
     ) {
-        List<String> why =
-                new ArrayList<>();
+        List<String> why = new ArrayList<>();
 
-        if (diet != null) {
-            why.add(
-                    "Filtered for your "
-                            + label(diet)
-                            + " dietary preference."
-            );
+        if (diet != null)
+            why.add("Filtered for your " + label(diet) + " dietary preference.");
+
+        if (meal != null)
+            why.add("Generated for the requested "
+                    + meal.toLowerCase(Locale.ROOT) + ".");
+
+        if (profile != null && profile.getGoal() != null)
+            why.add("Your " + label(profile.getGoal()) + " goal was considered.");
+
+        if (glutenFree)
+            why.add("Gluten-related conflicts were screened for your gluten-free requirement.");
+
+        if (religiousDiet != null)
+            why.add(label(religiousDiet)
+                    + " dietary conflict screening was applied. "
+                    + "UNKNOWN does not mean certified compliant.");
+
+        if (preference(profile, candidate))
+            why.add("Matches a saved food preference.");
+
+        String reason;
+
+        if (proteinFocus) {
+            reason = "This food passed the protein-focused filter with "
+                    + "at least 8 g protein per 100 g and has verified USDA nutrition evidence.";
+        } else if (fiberFocus && valid(food.getFiber())) {
+            reason = "Verified fiber evidence supports this recommendation.";
+        } else {
+            reason = "Verified USDA nutrition evidence supports this recommendation.";
         }
-
-        if (meal != null) {
-            why.add(
-                    "Generated for the requested "
-                            + meal.toLowerCase(
-                            Locale.ROOT)
-                            + "."
-            );
-        }
-
-        if (profile != null
-                && profile.getGoal() != null) {
-            why.add(
-                    "Your "
-                            + label(
-                            profile.getGoal())
-                            + " goal was considered."
-            );
-        }
-
-        if (glutenFree) {
-            why.add(
-                    "Celiac-focused filtering removed obvious gluten-grain "
-                            + "options. Check packaged-food labels and avoid cross-contact."
-            );
-        }
-
-        if (matchesPreference(
-                profile,
-                candidate)) {
-            why.add(
-                    "Matches a food preference saved in your profile."
-            );
-        }
-
-        String reason =
-                protein
-                        && valid(
-                        food.getProtein())
-                        ? "This option passed NutriVerse's protein-focused filter "
-                        + "(at least 8 g protein per 100 g)."
-                        : fiber
-                        && valid(
-                        food.getFiber())
-                        ? "Verified fiber evidence supports your request."
-                        : "This option matched your personalization filters and has "
-                        + "a verified nutrition record.";
 
         RecommendationResponse.Evidence evidence =
                 new RecommendationResponse.Evidence(
@@ -677,235 +325,330 @@ public class RecommendationService {
                 );
 
         return new RecommendationResponse.RecommendationItem(
-                food.getFoodName() == null
-                        ? candidate
-                        : food.getFoodName(),
-                why,
-                evidence,
-                reason
-        );
+                food.getFoodName() == null ? candidate : food.getFoodName(),
+                why, evidence, reason);
     }
 
-    private boolean matchesPreference(
-            NutritionProfile profile,
-            String candidate
+    private boolean allowed(
+            NutritionResult food,
+            String diet,
+            boolean glutenFree,
+            String religiousDiet,
+            Set<String> excluded,
+            Set<String> recentIds
     ) {
-        if (profile == null
-                || profile.getFoodPreferences() == null) {
-            return false;
-        }
+        if (food == null || food.getFoodName() == null) return false;
 
-        String preferences =
-                normalize(
-                        profile.getFoodPreferences());
+        String name = food.getFoodName();
 
-        for (String token :
-                meaningfulTokens(candidate)) {
+        if (!dietAllows(name, diet)) return false;
 
-            if (preferences.contains(token))
-                return true;
-        }
+        if (glutenFree
+                && ("CONFLICT".equals(food.getGlutenStatus())
+                || contains(name, GLUTEN))) return false;
 
-        return false;
+        if (!religiousAllows(food, religiousDiet)) return false;
+        if (matches(name, excluded)) return false;
+
+        return !recentIds.contains(food.getSourceId());
     }
 
-    private Set<String> savedDislikes(
-            NutritionProfile profile
-    ) {
-        if (profile == null
-                || profile.getFoodDislikes() == null
-                || profile.getFoodDislikes().isBlank()) {
-            return Set.of();
-        }
+    private boolean religiousAllows(NutritionResult food, String diet) {
+        if (diet == null) return true;
 
-        Set<String> result =
-                new LinkedHashSet<>();
+        String status = switch (diet) {
+            case "JAIN" -> food.getJainStatus();
+            case "HALAL" -> food.getHalalStatus();
+            case "KOSHER" -> food.getKosherStatus();
+            default -> null;
+        };
 
-        for (String item :
-                profile.getFoodDislikes()
-                        .split(",")) {
-
-            String value =
-                    normalize(item);
-
-            if (!value.isBlank())
-                result.add(value);
-        }
-
-        return result;
+        return !"CONFLICT".equals(status);
     }
 
-    private Set<String> currentExclusions(
-            String text
-    ) {
-        if (text.contains("\n")) {
-            Set<String> combined = new LinkedHashSet<>();
-            for (String line : text.split("\\R")) combined.addAll(currentExclusions(line));
-            return combined;
-        }
-        text = normalize(text);
-        boolean exclusionRequest =
-                hasAny(
-                        text,
-                        "don't have",
-                        "dont have",
-                        "do not have",
-                        "not available",
-                        "without ",
-                        "exclude ",
-                        "avoid ",
-                        "instead of ",
-                        "don't like",
-                        "do not like",
-                        "dislike",
-                        "hate "
-                );
-
-        if (!exclusionRequest)
-            return Set.of();
-
-        String remainder =
-                text.replaceFirst(
-                        ".*?(?:don't have|dont have|do not have|not available|without|"
-                                + "exclude|avoid|instead of|don't like|do not like|dislike|hate)\\s+",
-                        ""
-                );
-
-        Set<String> result =
-                new LinkedHashSet<>();
-
-        for (String part :
-                remainder.split(
-                        "\\s*(?:,|\\bor\\b|\\band\\b)\\s*"
-                )) {
-
-            String value =
-                    normalize(part);
-
-            if (!value.isBlank()
-                    && value.length() <= 50) {
-                result.add(value);
-            }
-        }
-
-        return result;
-    }
-
-private boolean matchesAny(
-        String candidate,
-        Collection<String> excluded
-) {
-    String normalizedCandidate = " " + normalize(candidate) + " ";
-
-    for (String value : excluded) {
-
-        String blocked = normalize(value);
-
-        if (blocked.isBlank())
-            continue;
-
-        if (normalizedCandidate.contains(" " + blocked + " ")) {
+    private boolean dietAllows(String food, String diet) {
+        if (diet == null || "NON_VEGETARIAN".equals(diet))
             return true;
-        }
+
+        if (contains(food, MEAT))
+            return false;
+
+        return !"VEGAN".equals(diet) || !contains(food, ANIMAL);
     }
 
-    return false;
-}
-    private boolean containsAnyWord(
-            String value,
-            Collection<String> words
-    ) {
-        String normalized =
-                " " + normalize(value) + " ";
-
-        for (String word : words) {
-
-            String target =
-                    " " + normalize(word) + " ";
-
-            if (normalized.contains(target))
-                return true;
-        }
-
-        return false;
+    private boolean verified(NutritionResult food) {
+        return food != null
+                && "USDA FoodData Central".equals(food.getSource())
+                && "AUTHORITATIVE_DATABASE".equals(food.getSourceType())
+                && food.isVerified()
+                && !food.isEstimated()
+                && food.getSourceId() != null
+                && food.getSourceId().matches("[1-9][0-9]*")
+                && food.getServingSize() != null
+                && food.getServingSize() > 0
+                && "g".equals(food.getServingUnit());
     }
 
-    private String cleanCandidate(
-            String value
-    ) {
-        if (value == null)
-            return null;
-
-        String cleaned =
-                value.replace("*", "")
-                        .trim();
-
-        if (cleaned.isBlank()
-                || cleaned.length() > 70
-                || cleaned.contains(":")) {
-            return null;
-        }
-
-        return cleaned;
-    }
-
-    private String normalize(String value) {
-
-        return value == null
-                ? ""
-                : value.toLowerCase(
-                        Locale.ROOT)
-                .replace("-", " ")
-                .replace("’", "'")
-                .replaceAll(
-                        "[^a-z0-9' ]",
-                        " "
-                )
-                .replaceAll(
-                        "\\s+",
-                        " "
-                )
-                .trim();
-    }
-
-    private boolean hasAny(
-            String text,
-            String... words
-    ) {
-        return Arrays.stream(words)
-                .anyMatch(text::contains);
-    }
-
-    private boolean meetsProteinFocus(NutritionResult food) {
+    private boolean proteinEnough(NutritionResult food) {
         return food != null
                 && valid(food.getProtein())
-                && food.getProtein() >= MIN_PROTEIN_GRAMS_PER_100G
+                && food.getProtein() >= MIN_PROTEIN
                 && Double.valueOf(100.0).equals(food.getServingSize())
                 && "g".equals(food.getServingUnit());
     }
 
-    private boolean valid(
-            Double value
+    private double score(
+            NutritionResult food,
+            NutritionProfile profile,
+            boolean proteinFocus,
+            boolean fiberFocus
     ) {
-        return value != null
-                && Double.isFinite(value)
-                && value >= 0;
+        double score = 0;
+
+        if (proteinFocus && valid(food.getProtein()))
+            score += food.getProtein() * 2;
+
+        if (fiberFocus && valid(food.getFiber()))
+            score += food.getFiber() * 2;
+
+        if (profile == null || profile.getGoal() == null)
+            return score;
+
+        Double p = food.getProtein();
+        Double f = food.getFiber();
+        Double c = food.getCalories();
+
+        switch (profile.getGoal()) {
+            case "WEIGHT_LOSS" -> {
+                if (valid(p) && valid(c) && c > 0)
+                    score += (p / c) * 300;
+                if (valid(f)) score += f;
+            }
+            case "FITNESS", "WEIGHT_GAIN" -> {
+                if (valid(p)) score += p * 1.5;
+            }
+            case "HEALTHY_EATING", "MAINTENANCE" -> {
+                if (valid(p)) score += p;
+                if (valid(f)) score += f;
+            }
+            default -> { }
+        }
+
+        return score;
+    }
+
+    private int relevance(String candidate, String name) {
+        if (name == null) return 0;
+
+        String a = normalize(candidate);
+        String b = normalize(name);
+        int score = b.contains(a) ? 8 : 0;
+
+        for (String word : a.split(" "))
+            if (word.length() >= 3 && b.contains(word))
+                score += 3;
+
+        return score;
+    }
+
+    private String diet(NutritionProfile profile, String text) {
+        String saved = profile == null ? null : profile.getDietType();
+
+        if ("VEGAN".equals(saved) || text.contains("vegan"))
+            return "VEGAN";
+
+        if ("VEGETARIAN".equals(saved))
+            return "VEGETARIAN";
+
+        if (has(text, "non vegetarian", "non veg", "nonveg"))
+            return "NON_VEGETARIAN";
+
+        if (text.contains("vegetarian"))
+            return "VEGETARIAN";
+
+        return saved;
+    }
+
+    private boolean glutenFree(NutritionProfile profile, String text) {
+        return "GLUTEN_FREE".equals(
+                profile == null ? null : profile.getDietaryRestriction())
+                || has(text, "celiac", "coeliac", "gluten free",
+                "gluten-free", "can't eat gluten",
+                "cannot eat gluten", "avoid gluten");
+    }
+
+    private String meal(String text) {
+        if (text.contains("breakfast")) return "BREAKFAST";
+        if (text.contains("lunch")) return "LUNCH";
+        if (text.contains("dinner")) return "DINNER";
+        if (text.contains("snack")) return "SNACK";
+        return null;
+    }
+
+    private String resolveRequest(
+            String request,
+            List<ChatMessage> previous,
+            boolean followup
+    ) {
+        if (!followup || previous.isEmpty()) return request;
+
+        String old = previous.getLast().getRecommendationRequest();
+        if (old == null || old.isBlank()) return request;
+
+        return currentExclusions(request).isEmpty()
+                ? old
+                : old + "\n" + request;
+    }
+
+    private void addPrevious(
+            List<ChatMessage> previous,
+            Set<String> excluded,
+            Set<String> recentIds
+    ) {
+        for (ChatMessage message : previous) {
+            if (message.getRecommendation() == null) continue;
+
+            for (var item : message.getRecommendation().getRecommendations()) {
+                if (item.getWhat() != null)
+                    excluded.add(item.getWhat());
+
+                if (item.getEvidence() != null
+                        && item.getEvidence().getSourceId() != null)
+                    recentIds.add(item.getEvidence().getSourceId());
+            }
+
+            excluded.addAll(
+                    currentExclusions(message.getRecommendationRequest()));
+        }
+    }
+
+    private Set<String> exclusions(
+            NutritionProfile profile,
+            String resolved,
+            String request
+    ) {
+        Set<String> result = new LinkedHashSet<>();
+
+        if (profile != null && profile.getFoodDislikes() != null)
+            for (String food : profile.getFoodDislikes().split(",")) {
+                String clean = normalize(food);
+                if (!clean.isBlank()) result.add(clean);
+            }
+
+        result.addAll(currentExclusions(resolved));
+        result.addAll(currentExclusions(request));
+        return result;
+    }
+
+    private Set<String> currentExclusions(String value) {
+        if (value == null || value.isBlank()) return Set.of();
+
+        if (value.contains("\n")) {
+            Set<String> all = new LinkedHashSet<>();
+            for (String line : value.split("\\R"))
+                all.addAll(currentExclusions(line));
+            return all;
+        }
+
+        String text = normalize(value);
+
+        if (!has(text, "don't have", "dont have", "do not have",
+                "not available", "without ", "exclude ", "avoid ",
+                "instead of ", "don't like", "dislike", "hate "))
+            return Set.of();
+
+        String rest = text.replaceFirst(
+                ".*?(?:don't have|dont have|do not have|not available|without|"
+                        + "exclude|avoid|instead of|don't like|dislike|hate)\\s+", "");
+
+        Set<String> result = new LinkedHashSet<>();
+
+        for (String part : rest.split("\\s*(?:,|\\bor\\b|\\band\\b)\\s*")) {
+            String food = normalize(part);
+            if (!food.isBlank() && food.length() <= 50)
+                result.add(food);
+        }
+
+        return result;
+    }
+
+    private boolean preference(NutritionProfile profile, String candidate) {
+        if (profile == null || profile.getFoodPreferences() == null)
+            return false;
+
+        String preferences = normalize(profile.getFoodPreferences());
+
+        for (String word : normalize(candidate).split(" "))
+            if (word.length() >= 3 && preferences.contains(word))
+                return true;
+
+        return false;
+    }
+
+    private boolean matches(String food, Collection<String> blocked) {
+        String text = " " + normalize(food) + " ";
+
+        for (String value : blocked) {
+            String word = normalize(value);
+            if (!word.isBlank() && text.contains(" " + word + " "))
+                return true;
+        }
+        return false;
+    }
+
+    private boolean contains(String food, Collection<String> words) {
+        String text = " " + normalize(food) + " ";
+
+        for (String word : words)
+            if (text.contains(" " + normalize(word) + " "))
+                return true;
+
+        return false;
+    }
+
+    private String clean(String value) {
+        if (value == null) return null;
+
+        String result = value.replace("*", "").trim();
+
+        return result.isBlank()
+                || result.length() > 70
+                || result.contains(":")
+                ? null : result;
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT)
+                .replace("-", " ")
+                .replace("’", "'")
+                .replaceAll("[^a-z0-9' ]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private boolean has(String text, String... values) {
+        return Arrays.stream(values).anyMatch(text::contains);
+    }
+
+    private boolean valid(Double value) {
+        return value != null && Double.isFinite(value) && value >= 0;
     }
 
     private String label(String value) {
+        return value.replace("_", " ").toLowerCase(Locale.ROOT);
+    }
 
-        return value.replace(
-                        "_",
-                        " "
-                )
-                .toLowerCase(
-                        Locale.ROOT);
+    private RecommendationResponse empty() {
+        return new RecommendationResponse(
+                "EVIDENCE_STRUCTURED",
+                "NOT_SPECIFIED",
+                "NOT_SPECIFIED",
+                List.of());
     }
 
     private record ScoredFood(
             String candidate,
             NutritionResult food,
             double score
-    ) {
-    }
+    ) {}
 }

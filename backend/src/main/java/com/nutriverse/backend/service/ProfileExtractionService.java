@@ -4,12 +4,7 @@ import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,46 +18,75 @@ public class ProfileExtractionService {
             Pattern.CASE_INSENSITIVE
     );
 
-    private final NutritionProfileRepository profileRepository;
+    private final NutritionProfileRepository repository;
     private final DailyTargetService dailyTargetService;
-    private final Map<String, String> awaitingFields = new ConcurrentHashMap<>();
+
+    // Temporary conversation state only
+    private final Map<String, String> awaitingFields =
+            new ConcurrentHashMap<>();
 
     public ProfileExtractionService(
-            NutritionProfileRepository profileRepository,
+            NutritionProfileRepository repository,
             DailyTargetService dailyTargetService
     ) {
-        this.profileRepository = profileRepository;
+        this.repository = repository;
         this.dailyTargetService = dailyTargetService;
     }
 
-    public void processUserMessage(String userId, String message) {
+    public void processUserMessage(
+            String userId,
+            String message
+    ) {
 
-        if (userId == null || message == null || message.isBlank()) return;
+        if (userId == null ||
+                message == null ||
+                message.isBlank())
+            return;
 
         String text = normalize(message);
         String awaited = awaitingFields.remove(userId);
 
-        NutritionProfile profile = profileRepository
+        NutritionProfile profile = repository
                 .findByUserId(userId)
-                .orElseGet(() -> new NutritionProfile(userId));
+                .orElseGet(() ->
+                        new NutritionProfile(userId)
+                );
 
         boolean changed = false;
 
-        Integer age = age(text, "age".equals(awaited));
+        Integer age = age(
+                text,
+                "age".equals(awaited)
+        );
+
         if (age != null) {
             profile.setAge(age);
             changed = true;
         }
 
         Double height = measurement(
-                text, "height", "cm", 50, 250, "height".equals(awaited));
+                text,
+                "height",
+                "cm",
+                50,
+                250,
+                "height".equals(awaited)
+        );
+
         if (height != null) {
             profile.setHeight(height);
             changed = true;
         }
 
         Double weight = measurement(
-                text, "weight", "kg", 10, 500, "weight".equals(awaited));
+                text,
+                "weight",
+                "kg",
+                10,
+                500,
+                "weight".equals(awaited)
+        );
+
         if (weight != null) {
             profile.setWeight(weight);
             changed = true;
@@ -81,6 +105,7 @@ public class ProfileExtractionService {
                         "non-binary", "OTHER"
                 )
         );
+
         if (gender != null) {
             profile.setGender(gender);
             changed = true;
@@ -99,6 +124,7 @@ public class ProfileExtractionService {
                         "non-veg", "NON_VEGETARIAN"
                 )
         );
+
         if (diet != null) {
             profile.setDietType(diet);
             changed = true;
@@ -115,8 +141,13 @@ public class ProfileExtractionService {
                         "extra active", "EXTRA_ACTIVE"
                 )
         );
-        if (activity == null)
-            activity = exerciseActivity(text, "activityLevel".equals(awaited));
+
+        if (activity == null) {
+            activity = exerciseActivity(
+                    text,
+                    "activityLevel".equals(awaited)
+            );
+        }
 
         if (activity != null) {
             profile.setActivityLevel(activity);
@@ -137,66 +168,162 @@ public class ProfileExtractionService {
                         "improve fitness", "FITNESS"
                 )
         );
+
         if (goal != null) {
             profile.setGoal(goal);
             changed = true;
         }
 
-        if (declaresGlutenRestriction(text)
-                && !"GLUTEN_FREE".equals(profile.getDietaryRestriction())) {
-            profile.setDietaryRestriction("GLUTEN_FREE");
+        // Medical dietary restriction
+        if (declaresGlutenRestriction(text) &&
+                !"GLUTEN_FREE".equals(
+                        profile.getDietaryRestriction()
+                )) {
+
+            profile.setDietaryRestriction(
+                    "GLUTEN_FREE"
+            );
+
             changed = true;
         }
 
-        List<String> dislikes = extractDislikes(text);
+        // Explicit cultural / religious food preference
+        String religiousDiet =
+                extractReligiousDiet(text);
+
+        if (religiousDiet != null &&
+                !religiousDiet.equals(
+                        profile.getReligiousDiet()
+                )) {
+
+            profile.setReligiousDiet(
+                    religiousDiet
+            );
+
+            changed = true;
+        }
+
+        List<String> dislikes =
+                extractDislikes(text);
+
         if (!dislikes.isEmpty()) {
-            String merged = mergeCsv(profile.getFoodDislikes(), dislikes, 300);
-            if (!merged.equals(profile.getFoodDislikes())) {
+
+            String merged = mergeCsv(
+                    profile.getFoodDislikes(),
+                    dislikes,
+                    300
+            );
+
+            if (!merged.equals(
+                    profile.getFoodDislikes()
+            )) {
+
                 profile.setFoodDislikes(merged);
                 changed = true;
             }
         }
 
         if (changed) {
-            profileRepository.save(profile);
+            repository.save(profile);
             dailyTargetService.calculateTargets(userId);
         }
     }
 
-    public void processAssistantReply(String userId, String reply) {
+    public void processAssistantReply(
+            String userId,
+            String reply
+    ) {
 
-        if (userId == null) return;
+        if (userId == null)
+            return;
 
         awaitingFields.remove(userId);
 
-        if (reply == null || !reply.contains("?")) return;
+        if (reply == null ||
+                !reply.contains("?"))
+            return;
 
         String text = normalize(reply);
         String field = null;
 
-        if (text.contains("how old") || text.contains("your age"))
+        if (text.contains("how old") ||
+                text.contains("your age")) {
+
             field = "age";
-        else if (text.contains("your height") || text.contains("how tall"))
+
+        } else if (text.contains("your height") ||
+                text.contains("how tall")) {
+
             field = "height";
-        else if (text.contains("your weight")
-                || text.contains("how much do you weigh"))
+
+        } else if (text.contains("your weight") ||
+                text.contains("how much do you weigh")) {
+
             field = "weight";
-        else if (text.contains("your activity level")
-                || text.contains("how active")
-                || text.contains("how many days") && text.contains("exercise"))
+
+        } else if (text.contains("your activity level") ||
+                text.contains("how active") ||
+                (text.contains("how many days") &&
+                        text.contains("exercise"))) {
+
             field = "activityLevel";
+        }
 
         if (field != null) {
-            if (awaitingFields.size() >= 1000) awaitingFields.clear();
+
+            if (awaitingFields.size() >= 1000)
+                awaitingFields.clear();
+
             awaitingFields.put(userId, field);
         }
     }
 
-    private boolean declaresGlutenRestriction(String text) {
+    // Used when chat history is deleted.
+    // Saved profile values remain untouched.
+    public void clearPendingState(String userId) {
 
-        if (text.contains("don't have celiac")
-                || text.contains("do not have celiac")
-                || text.contains("not celiac")) {
+        if (userId != null) {
+            awaitingFields.remove(userId);
+        }
+    }
+
+    private String extractReligiousDiet(
+            String text
+    ) {
+
+        if (text.matches(
+                ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
+                        + "(?:a\\s+)?jain(?:\\s+diet|\\s+food)?.*"
+        )) {
+            return "JAIN";
+        }
+
+        if (text.matches(
+                ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
+                        + "(?:a\\s+)?halal(?:\\s+diet|\\s+food)?.*"
+        )) {
+            return "HALAL";
+        }
+
+        if (text.contains("keep kosher") ||
+                text.matches(
+                        ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
+                                + "(?:a\\s+)?kosher(?:\\s+diet|\\s+food)?.*"
+                )) {
+            return "KOSHER";
+        }
+
+        return null;
+    }
+
+    private boolean declaresGlutenRestriction(
+            String text
+    ) {
+
+        if (text.contains("don't have celiac") ||
+                text.contains("do not have celiac") ||
+                text.contains("not celiac")) {
+
             return false;
         }
 
@@ -211,30 +338,46 @@ public class ProfileExtractionService {
                 || text.contains("avoid gluten");
     }
 
-    private List<String> extractDislikes(String text) {
+    private List<String> extractDislikes(
+            String text
+    ) {
 
-        Matcher matcher = DISLIKE.matcher(text);
-        if (!matcher.find()) return List.of();
+        Matcher matcher =
+                DISLIKE.matcher(text);
+
+        if (!matcher.find())
+            return List.of();
 
         String value = matcher.group(1)
-                .replaceAll("\\b(?:please|anymore|right now)\\b", "")
+                .replaceAll(
+                        "\\b(?:please|anymore|right now)\\b",
+                        ""
+                )
                 .trim();
 
-        if (value.isEmpty()) return List.of();
+        if (value.isEmpty())
+            return List.of();
 
-        List<String> result = new ArrayList<>();
+        List<String> result =
+                new ArrayList<>();
 
-        for (String part : value.split("\\s*(?:,|\\bor\\b|\\band\\b)\\s*")) {
+        for (String part :
+                value.split(
+                        "\\s*(?:,|\\bor\\b|\\band\\b)\\s*"
+                )) {
+
             String food = part.trim();
 
-            if (food.length() < 2 || food.length() > 50) continue;
-
-            // "gluten" is represented by the dietary restriction field instead.
-            if ("gluten".equals(food)
-                    || food.contains("celiac")
-                    || food.contains("coeliac")) {
+            if (food.length() < 2 ||
+                    food.length() > 50)
                 continue;
-            }
+
+            // Gluten is stored as a restriction,
+            // not as an ordinary dislike.
+            if ("gluten".equals(food) ||
+                    food.contains("celiac") ||
+                    food.contains("coeliac"))
+                continue;
 
             result.add(food);
         }
@@ -242,50 +385,87 @@ public class ProfileExtractionService {
         return result;
     }
 
-    private String mergeCsv(String existing, List<String> additions, int maxLength) {
+    private String mergeCsv(
+            String existing,
+            List<String> additions,
+            int maxLength
+    ) {
 
-        Set<String> values = new LinkedHashSet<>();
+        Set<String> values =
+                new LinkedHashSet<>();
 
-        if (existing != null && !existing.isBlank()) {
-            for (String item : existing.split(",")) {
+        if (existing != null &&
+                !existing.isBlank()) {
+
+            for (String item :
+                    existing.split(",")) {
+
                 String value = item.trim();
-                if (!value.isEmpty()) values.add(value);
+
+                if (!value.isEmpty())
+                    values.add(value);
             }
         }
 
         values.addAll(additions);
 
-        StringBuilder out = new StringBuilder();
+        StringBuilder output =
+                new StringBuilder();
 
         for (String value : values) {
 
-            String next = out.isEmpty() ? value : ", " + value;
+            String next =
+                    output.isEmpty()
+                            ? value
+                            : ", " + value;
 
-            if (out.length() + next.length() > maxLength) break;
+            if (output.length() +
+                    next.length() > maxLength)
+                break;
 
-            out.append(next);
+            output.append(next);
         }
 
-        return out.toString();
+        return output.toString();
     }
 
-    private Integer age(String text, boolean awaited) {
+    private Integer age(
+            String text,
+            boolean awaited
+    ) {
 
         String value = match(
                 text,
-                "\\b(?:i am|i'm)\\s+(?:a\\s+)?(\\d{1,3})\\s*(?:years? old|y/o)\\b"
+                "\\b(?:i am|i'm)\\s+(?:a\\s+)?"
+                        + "(\\d{1,3})\\s*(?:years? old|y/o)\\b"
         );
 
+        if (value == null) {
+            value = match(
+                    text,
+                    "\\bmy age(?: is|:)?\\s+"
+                            + "(\\d{1,3})(?![\\d.])\\b"
+            );
+        }
+
+        if (value == null && awaited) {
+            value = match(
+                    text,
+                    "^(?:i am |i'm )?"
+                            + "(\\d{1,3})"
+                            + "(?: years? old)?[.!]?$"
+            );
+        }
+
         if (value == null)
-            value = match(text, "\\bmy age(?: is|:)?\\s+(\\d{1,3})(?![\\d.])\\b");
+            return null;
 
-        if (value == null && awaited)
-            value = match(text, "^(?:i am |i'm )?(\\d{1,3})(?: years? old)?[.!]?$");
+        int age =
+                Integer.parseInt(value);
 
-        if (value == null) return null;
-
-        int age = Integer.parseInt(value);
-        return age >= 1 && age <= 120 ? age : null;
+        return age >= 1 && age <= 120
+                ? age
+                : null;
     }
 
     private Double measurement(
@@ -297,30 +477,42 @@ public class ProfileExtractionService {
             boolean awaited
     ) {
 
-        String prefix = "weight".equals(field)
-                ? "(?:i weigh|my weight is|i am|i'm)"
-                : "(?:my height is|i am|i'm)";
+        String prefix =
+                "weight".equals(field)
+                        ? "(?:i weigh|my weight is|i am|i'm)"
+                        : "(?:my height is|i am|i'm)";
 
         String value = match(
                 text,
-                "\\b" + prefix + "\\s+(\\d{2,3}(?:\\.\\d{1,2})?)\\s*" + unit + "\\b"
+                "\\b" + prefix
+                        + "\\s+(\\d{2,3}(?:\\.\\d{1,2})?)"
+                        + "\\s*" + unit + "\\b"
         );
 
-        if (value == null)
+        if (value == null) {
             value = match(
                     text,
-                    "^(\\d{2,3}(?:\\.\\d{1,2})?)\\s*" + unit + "[.!]?$"
+                    "^(\\d{2,3}(?:\\.\\d{1,2})?)"
+                            + "\\s*" + unit + "[.!]?$"
             );
+        }
 
-        if (value == null && awaited)
-            value = match(text, "^(\\d{2,3}(?:\\.\\d{1,2})?)[.!]?$");
+        if (value == null && awaited) {
+            value = match(
+                    text,
+                    "^(\\d{2,3}(?:\\.\\d{1,2})?)[.!]?$"
+            );
+        }
 
-        if (value == null) return null;
+        if (value == null)
+            return null;
 
-        double measurement = Double.parseDouble(value);
+        double result =
+                Double.parseDouble(value);
 
-        return measurement >= min && measurement <= max
-                ? measurement
+        return result >= min &&
+                result <= max
+                ? result
                 : null;
     }
 
@@ -330,17 +522,35 @@ public class ProfileExtractionService {
             Map<String, String> choices
     ) {
 
-        for (String option : choices.keySet()
-                .stream()
-                .sorted((a, b) -> Integer.compare(b.length(), a.length()))
-                .toList()) {
+        List<String> options =
+                choices.keySet()
+                        .stream()
+                        .sorted(
+                                (a, b) ->
+                                        Integer.compare(
+                                                b.length(),
+                                                a.length()
+                                        )
+                        )
+                        .toList();
 
-            String quoted = Pattern.quote(option);
+        for (String option : options) {
 
-            if (text.matches("^" + quoted + "[.!]?$")
-                    || Pattern.compile("\\b" + prefix + quoted + "\\b")
-                    .matcher(text)
-                    .find()) {
+            String quoted =
+                    Pattern.quote(option);
+
+            if (text.matches(
+                    "^" + quoted + "[.!]?$"
+            ) ||
+                    Pattern.compile(
+                                    "\\b"
+                                            + prefix
+                                            + quoted
+                                            + "\\b"
+                            )
+                            .matcher(text)
+                            .find()) {
+
                 return choices.get(option);
             }
         }
@@ -348,34 +558,52 @@ public class ProfileExtractionService {
         return null;
     }
 
-    private String exerciseActivity(String text, boolean awaited) {
+    private String exerciseActivity(
+            String text,
+            boolean awaited
+    ) {
 
         String days = match(
                 text,
-                "\\bi (?:exercise|work out|workout|train)\\s+([0-7])\\s*"
+                "\\bi (?:exercise|work out|workout|train)"
+                        + "\\s+([0-7])\\s*"
                         + "(?:days?|times?) (?:a|per) week\\b"
         );
 
-        if (days == null && awaited)
+        if (days == null && awaited) {
             days = match(
                     text,
-                    "^([0-7])(?: (?:days?|times?) (?:a|per) week)?[.!]?$"
+                    "^([0-7])(?: (?:days?|times?)"
+                            + " (?:a|per) week)?[.!]?$"
             );
+        }
 
-        if (days == null) return null;
+        if (days == null)
+            return null;
 
-        int count = Integer.parseInt(days);
+        int count =
+                Integer.parseInt(days);
 
-        if (count == 0) return "SEDENTARY";
-        if (count <= 2) return "LIGHTLY_ACTIVE";
-        if (count <= 5) return "MODERATELY_ACTIVE";
+        if (count == 0)
+            return "SEDENTARY";
+
+        if (count <= 2)
+            return "LIGHTLY_ACTIVE";
+
+        if (count <= 5)
+            return "MODERATELY_ACTIVE";
 
         return "VERY_ACTIVE";
     }
 
-    private String match(String text, String regex) {
+    private String match(
+            String text,
+            String regex
+    ) {
 
-        Matcher matcher = Pattern.compile(regex).matcher(text);
+        Matcher matcher =
+                Pattern.compile(regex)
+                        .matcher(text);
 
         return matcher.find()
                 ? matcher.group(1)
@@ -383,6 +611,7 @@ public class ProfileExtractionService {
     }
 
     private String normalize(String text) {
+
         return text.toLowerCase(Locale.ROOT)
                 .trim()
                 .replace('\u2019', '\'')
