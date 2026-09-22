@@ -2,298 +2,162 @@ import AppNav from "./AppNav.jsx";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import chatWelcome from "./assets/images/chat-welcome.jpg";
-import "./Chat.css";
 import { API_URL, readUser, handleUnauthorized } from "./api.js";
+import "./Chat.css";
 
-const TEMP_ERROR =
-  "Nutri is having trouble responding right now. Please try again in a moment.";
+const TEMP_ERROR = "Nutri is having trouble responding right now. Please try again in a moment.";
 
 const suggestions = [
   ["🥗", "Plan my meals", "Help me plan my meals for today"],
-  ["🍲", "Suggest 3 recipes", "Suggest 3 recipes for my next meal"],
+  ["🍲", "Suggest recipes", "Suggest 3 recipes for my next meal"],
   ["💪", "Protein breakfast", "Suggest a high-protein breakfast"],
   ["🌱", "Fiber meal", "Suggest a high-fiber meal"]
 ];
 
-const hasAny = (text, words) => words.some(word => text.includes(word));
-
+const hasAny = (t, words) => words.some(w => t.includes(w));
+const PROFILE_UPDATE = /\b(?:i (?:don't|dont|do not) (?:eat|consume|like)|i (?:can't|cant|cannot) (?:eat|have)|i dislike|i hate|avoid|exclude)\b/i;
+const REQUEST_WORDS = /\b(?:recommend|suggest|give me|what should i eat|what can i eat|another|more|alternative|instead)\b/i;
 const FOLLOW_UP = /\b(?:other|another|more|different|else)\b/;
-const MEAL_IDEAS = /\b(?:meals|dishes|ideas)\b/;
 
-const PROFILE_UPDATE =
-  /\b(?:i (?:don't|dont|do not) (?:eat|consume|like)|i (?:can't|cant|cannot) (?:eat|have)|i dislike|i hate|avoid|exclude)\b/i;
+function isRecommendationPrompt(text, previousChat = false) {
+  const t = text.toLowerCase();
 
-const REQUEST_WORDS =
-  /\b(?:recommend|suggest|give me|what should i eat|what can i eat|another|more|alternative|instead)\b/i;
+  const profileUpdate = PROFILE_UPDATE.test(t) && !REQUEST_WORDS.test(t);
+  const dailyProgress =
+    hasAny(t, ["protein", "calorie", "calories", "macro", "macros"]) &&
+    hasAny(t, ["goal", "target", "remaining", "left", "consumed", "consume", "eaten", "ate", "logged", "hit my"]);
 
-function isProfileUpdatePrompt(text) {
-  return PROFILE_UPDATE.test(text) && !REQUEST_WORDS.test(text);
-}
+  if (profileUpdate || dailyProgress) return false;
+  if (hasAny(t, ["recipe", "plan my meal", "plan my meals"])) return false;
+  if (FOLLOW_UP.test(t) && previousChat) return false;
 
-function isDailyProgressPrompt(text) {
-  const value = text.toLowerCase();
-
-  const nutrient = hasAny(value, [
-    "protein",
-    "calorie",
-    "calories",
-    "macro",
-    "macros"
-  ]);
-
-  const progress = hasAny(value, [
-    "goal",
-    "target",
-    "remaining",
-    "left",
-    "consumed",
-    "consume",
-    "eaten",
-    "ate",
-    "logged",
-    "hit my"
-  ]);
-
-  return nutrient && progress;
-}
-
-function isRecommendationPrompt(text, previousWasChatReply = false) {
-  const value = text.toLowerCase();
-
-  // These belong to /api/chat because the backend needs to update/read
-  // the user's saved profile or today's logged totals.
-  if (isProfileUpdatePrompt(value) || isDailyProgressPrompt(value)) {
-    return false;
-  }
-
-  if (
-    hasAny(value, [
-      "don't have",
-      "dont have",
-      "do not have",
-      "not available",
-      "without ",
-      "exclude ",
-      "avoid ",
-      "instead of ",
-      "alternative",
-      "swap"
-    ])
-  ) {
+  if (hasAny(t, ["don't have", "dont have", "do not have", "not available", "without ", "exclude ", "avoid ", "instead of ", "alternative", "swap"]))
     return true;
-  }
 
-  // After a generated meal/recipe conversation, "other meals" should
-  // remain in the normal chat instead of becoming single-food results.
-  if (
-    FOLLOW_UP.test(value) &&
-    (previousWasChatReply || MEAL_IDEAS.test(value))
-  ) {
-    return false;
-  }
+  return hasAny(t, ["recommend", "suggest", "give me", "what should i eat", "what can i eat", "i need", "i want"]) &&
+    hasAny(t, ["breakfast", "lunch", "dinner", "snack", "protein", "fiber", "fibre", "vegetarian", "vegan", "food", "meal", "post workout", "post-workout"]);
+}
 
-  if (hasAny(value, ["recipe", "plan my meal", "plan my meals"])) {
-    return false;
-  }
-
-  return (
-    hasAny(value, [
-      "recommend",
-      "suggest",
-      "give me",
-      "what should i eat",
-      "what can i eat",
-      "i need",
-      "i want"
-    ]) &&
-    hasAny(value, [
-      "breakfast",
-      "lunch",
-      "dinner",
-      "snack",
-      "protein",
-      "fiber",
-      "fibre",
-      "vegetarian",
-      "vegan",
-      "food",
-      "meal",
-      "post workout",
-      "post-workout"
-    ])
-  );
+function recommendationItems(data) {
+  return Array.isArray(data?.recommendations)
+    ? data.recommendations.filter(x => x?.what?.trim())
+    : [];
 }
 
 function historyItems(data) {
   if (!Array.isArray(data)) return [];
 
   return data.flatMap(item => {
-    if (!item || !["user", "assistant"].includes(item.role)) return [];
+    if (!["user", "assistant"].includes(item?.role)) return [];
 
     if (item.role === "assistant" && item.recommendation) {
       const items = recommendationItems(item.recommendation);
-
-      return [
-        items.length
-          ? {
-              role: "assistant",
-              recommendation: {
-                ...item.recommendation,
-                recommendations: items
-              }
-            }
-          : {
-              role: "assistant",
-              content:
-                "No additional verified options matched your constraints."
-            }
-      ];
+      return [{
+        role: "assistant",
+        ...(items.length
+          ? { recommendation: { ...item.recommendation, recommendations: items } }
+          : { content: "No additional verified options matched your constraints." })
+      }];
     }
 
-    return typeof item.content === "string" && item.content.trim()
-      ? [{ role: item.role, content: item.content }]
-      : [];
+    return item.content?.trim() ? [{ role: item.role, content: item.content }] : [];
   });
 }
 
 function friendlyError(response) {
-  if (response.status === 429) {
-    const retry = Number(response.headers.get("Retry-After"));
-
-    return Number.isFinite(retry) && retry > 0
-      ? `Nutri is receiving a lot of requests right now. Try again in about ${Math.ceil(
-          retry
-        )} seconds.`
-      : "Nutri is receiving a lot of requests right now. Please try again in a few seconds.";
-  }
-
-  if (response.status === 403)
-    return "Nutri is not available for this account right now.";
-
-  if (response.status === 503)
-    return "Verified nutrition evidence is temporarily unavailable. Please try again shortly.";
-
+  if (response.status === 429) return "Nutri is receiving a lot of requests. Please try again shortly.";
+  if (response.status === 403) return "Nutri is not available for this account right now.";
+  if (response.status === 503) return "Verified nutrition evidence is temporarily unavailable.";
   return TEMP_ERROR;
 }
 
-function Chat() {
+export default function Chat() {
   const navigate = useNavigate();
   const location = useLocation();
-
   const token = localStorage.getItem("token");
   const user = readUser();
 
-  const [foodContext, setFoodContext] = useState(
-    location.state?.food || null
-  );
-
-  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
+  const [foodContext, setFoodContext] = useState(location.state?.food || null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [typingText, setTypingText] = useState("Nutri is typing...");
+  const [elapsed, setElapsed] = useState(0);
 
   const endRef = useRef(null);
   const sendingRef = useRef(false);
-  const timerRef = useRef(null);
+  const thinkingTimer = useRef(null);
+  const elapsedTimer = useRef(null);
 
   useEffect(() => {
     if (!token) navigate("/login", { replace: true });
-  }, [navigate, token]);
+  }, [token, navigate]);
 
   useEffect(() => {
-    if (!token) {
-      setHistoryLoading(false);
-      return undefined;
-    }
+    if (!token) return setHistoryLoading(false);
 
     const controller = new AbortController();
 
-    async function loadHistory() {
-      try {
-        const response = await fetch(`${API_URL}/api/chat`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          signal: controller.signal
-        });
-
-        if (handleUnauthorized(response, navigate)) return;
-        if (!response.ok) return;
-
-        const data = await response.json();
-
-        if (!controller.signal.aborted) {
-          setMessages(historyItems(data));
-        }
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          setMessages([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setHistoryLoading(false);
-        }
-      }
-    }
-
-    loadHistory();
+    fetch(`${API_URL}/api/chat`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    })
+      .then(r => {
+        if (handleUnauthorized(r, navigate) || !r.ok) return [];
+        return r.json();
+      })
+      .then(data => !controller.signal.aborted && setMessages(historyItems(data)))
+      .catch(e => e.name !== "AbortError" && setMessages([]))
+      .finally(() => !controller.signal.aborted && setHistoryLoading(false));
 
     return () => controller.abort();
-  }, [navigate, token]);
+  }, [token, navigate]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
 
-  useEffect(
-    () => () => window.clearTimeout(timerRef.current),
-    []
-  );
+  useEffect(() => () => {
+    clearTimeout(thinkingTimer.current);
+    clearInterval(elapsedTimer.current);
+  }, []);
+
+  function startTimer() {
+    setElapsed(0);
+    setTypingText("Nutri is typing...");
+
+    thinkingTimer.current = setTimeout(() => setTypingText("Nutri is thinking..."), 5000);
+    elapsedTimer.current = setInterval(() => setElapsed(x => x + 1), 1000);
+  }
+
+  function stopTimer() {
+    clearTimeout(thinkingTimer.current);
+    clearInterval(elapsedTimer.current);
+    thinkingTimer.current = null;
+    elapsedTimer.current = null;
+    setElapsed(0);
+  }
 
   async function sendMessage(text = message) {
     const userMessage = text.trim();
-
     if (!userMessage || sendingRef.current || historyLoading) return;
     if (!token) return navigate("/login");
 
     sendingRef.current = true;
-
-    setMessages(prev => [
-      ...prev,
-      { role: "user", content: userMessage }
-    ]);
-
+    setMessages(m => [...m, { role: "user", content: userMessage }]);
     setMessage("");
     setIsSending(true);
-    setTypingText("Nutri is typing...");
-
-    timerRef.current = window.setTimeout(
-      () => setTypingText("Nutri is thinking..."),
-      5000
-    );
+    startTimer();
 
     try {
-      const lastReply = [...messages]
-        .reverse()
-        .find(item => item.role === "assistant");
-
-      const previousWasChatReply = Boolean(
-        lastReply && !lastReply.recommendation
-      );
-
+      const lastReply = [...messages].reverse().find(x => x.role === "assistant");
       const recommendation =
         !foodContext &&
-        isRecommendationPrompt(
-          userMessage,
-          previousWasChatReply
-        );
+        isRecommendationPrompt(userMessage, Boolean(lastReply && !lastReply.recommendation));
 
-      const endpoint = recommendation
-        ? "/api/recommendations"
-        : "/api/chat";
-
+      const endpoint = recommendation ? "/api/recommendations" : "/api/chat";
       const body = recommendation
         ? { request: userMessage }
         : {
@@ -316,128 +180,65 @@ function Chat() {
       if (handleUnauthorized(response, navigate)) return;
 
       if (!response.ok) {
-        setMessages(prev => [
-          ...prev,
-          {
-            role: "assistant",
-            content: friendlyError(response)
-          }
-        ]);
-
+        setMessages(m => [...m, { role: "assistant", content: friendlyError(response) }]);
         return;
       }
 
       const data = await response.json();
       const structured = data?.recommendation ?? data;
 
-      if (
-        recommendation ||
-        data?.recommendation ||
-        Array.isArray(data?.recommendations)
-      ) {
+      if (recommendation || data?.recommendation || Array.isArray(data?.recommendations)) {
         const items = recommendationItems(structured);
 
-        const reply = items.length
-          ? {
-              role: "assistant",
-              recommendation: {
-                ...structured,
-                recommendations: items
-              }
-            }
-          : {
-              role: "assistant",
-              content:
-                "I couldn't find a verified USDA-backed recommendation for that request."
-            };
-
-        setMessages(prev => [...prev, reply]);
-        return;
+        setMessages(m => [...m, {
+          role: "assistant",
+          ...(items.length
+            ? { recommendation: { ...structured, recommendations: items } }
+            : { content: "I couldn't find a verified USDA-backed recommendation for that request." })
+        }]);
+      } else {
+        setMessages(m => [...m, {
+          role: "assistant",
+          content: data?.reply || "I couldn't generate a response."
+        }]);
       }
-
-      setMessages(prev => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            typeof data?.reply === "string" && data.reply
-              ? data.reply
-              : "I couldn't generate a response."
-        }
-      ]);
     } catch {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: "assistant",
-          content: TEMP_ERROR
-        }
-      ]);
+      setMessages(m => [...m, { role: "assistant", content: TEMP_ERROR }]);
     } finally {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-
+      stopTimer();
       sendingRef.current = false;
       setIsSending(false);
     }
   }
 
   async function deleteChat() {
-    if (
-      isDeleting ||
-      isSending ||
-      historyLoading ||
-      messages.length === 0
-    ) {
-      return;
-    }
-
-    if (
-      !window.confirm(
-        "Delete your entire chat history? This cannot be undone."
-      )
-    ) {
-      return;
-    }
+    if (isDeleting || isSending || historyLoading || !messages.length) return;
+    if (!confirm("Delete your entire chat history? This cannot be undone.")) return;
 
     setIsDeleting(true);
 
     try {
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (handleUnauthorized(response, navigate)) return;
-
-      if (!response.ok) {
-        window.alert(
-          "Could not delete your chat history. Please try again."
-        );
-        return;
-      }
+      if (!response.ok) return alert("Could not delete your chat history.");
 
       setMessages([]);
       setFoodContext(null);
       setMessage("");
     } catch {
-      window.alert(
-        "Could not connect to the backend. Please try again."
-      );
+      alert("Could not connect to the backend.");
     } finally {
       setIsDeleting(false);
     }
   }
 
-  function handleKey(event) {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey &&
-      !event.nativeEvent.isComposing
-    ) {
-      event.preventDefault();
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
       sendMessage();
     }
   }
@@ -455,17 +256,10 @@ function Chat() {
 
           <div className="chat-header-actions">
             <span className="chat-online">● Online</span>
-
             <button
               className="chat-delete"
-              type="button"
               onClick={deleteChat}
-              disabled={
-                isDeleting ||
-                isSending ||
-                historyLoading ||
-                messages.length === 0
-              }
+              disabled={isDeleting || isSending || historyLoading || !messages.length}
             >
               {isDeleting ? "Deleting..." : "Delete chat"}
             </button>
@@ -474,95 +268,47 @@ function Chat() {
 
         {foodContext && (
           <div className="chat-food-context">
-            <span>
-              Selected food: {foodContext.foodName}. Nutrition facts
-              will be retrieved from its exact source record.
-            </span>
-
-            <button
-              type="button"
-              disabled={isSending}
-              onClick={() =>
-                sendMessage(
-                  "How much protein does this food contain?"
-                )
-              }
-            >
+            <span>Selected food: {foodContext.foodName}. Exact source record will be used.</span>
+            <button disabled={isSending} onClick={() => sendMessage("How much protein does this food contain?")}>
               Ask about protein
             </button>
-
-            <button
-              type="button"
-              disabled={isSending}
-              onClick={() => setFoodContext(null)}
-            >
-              Clear food
-            </button>
+            <button disabled={isSending} onClick={() => setFoodContext(null)}>Clear food</button>
           </div>
         )}
 
         <section className="chat-messages">
-          {!historyLoading && messages.length === 0 && (
+          {!historyLoading && !messages.length && (
             <div className="chat-welcome">
               <div className="chat-welcome-text">
-                <span className="chat-label">
-                  YOUR NUTRITION COMPANION
-                </span>
-
-                <h1>Hey {user.name || "there"} 👋</h1>
-
-                <p>
-                  Ask for recommendations, nutrition information or
-                  practical meal ideas.
-                </p>
+                <span className="chat-label">YOUR NUTRITION COMPANION</span>
+                <h1>Hey {user?.name || "there"} 👋</h1>
+                <p>Ask for recommendations, nutrition information or practical meal ideas.</p>
 
                 <div className="chat-suggestions">
                   {suggestions.map(([icon, title, prompt]) => (
-                    <button
-                      type="button"
-                      key={title}
-                      disabled={isSending || historyLoading}
-                      onClick={() => sendMessage(prompt)}
-                    >
-                      <span>{icon}</span>
-                      {title}
+                    <button key={title} disabled={isSending} onClick={() => sendMessage(prompt)}>
+                      <span>{icon}</span>{title}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <img
-                src={chatWelcome}
-                alt="Healthy balanced meal"
-              />
+              <img src={chatWelcome} alt="Healthy balanced meal" />
             </div>
           )}
 
-          {messages.map((item, index) => (
-            <div
-              key={index}
-              className={`chat-message ${item.role}`}
-            >
-              {item.role === "assistant" && (
-                <div className="chat-bot-avatar">🌿</div>
-              )}
+          {messages.map((item, i) => (
+            <div key={i} className={`chat-message ${item.role}`}>
+              {item.role === "assistant" && <div className="chat-bot-avatar">🌿</div>}
 
               <div className="chat-message-content">
-                <small>
-                  {item.role === "assistant" ? "Nutri" : "You"}
-                </small>
+                <small>{item.role === "assistant" ? "Nutri" : "You"}</small>
 
                 <div className="chat-bubble">
                   {item.role === "assistant"
                     ? item.recommendation
-                      ? (
-                        <RecommendationCards
-                          data={item.recommendation}
-                        />
-                      )
-                      : (
-                        <FormatText text={item.content} />
-                      )
+                      ? <RecommendationCards data={item.recommendation} />
+                      : <FormatText text={item.content} />
                     : item.content}
                 </div>
               </div>
@@ -572,23 +318,11 @@ function Chat() {
           {isSending && (
             <div className="chat-message assistant">
               <div className="chat-bot-avatar">🌿</div>
-
               <div className="chat-message-content">
                 <small>Nutri</small>
-
-                <div
-                  className="chat-bubble chat-typing"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span>{typingText}</span>
-
-                  <span
-                    className="chat-typing-dots"
-                    aria-hidden="true"
-                  >
-                    ● ● ●
-                  </span>
+                <div className="chat-bubble chat-typing">
+                  <span>{typingText} {elapsed > 0 && `${elapsed}s`}</span>
+                  <span className="chat-typing-dots">● ● ●</span>
                 </div>
               </div>
             </div>
@@ -599,24 +333,17 @@ function Chat() {
 
         <div className="chat-input-area">
           <textarea
-            aria-label="Message to Nutri"
             rows="1"
             placeholder="Ask Nutri about food, meals or nutrition..."
             value={message}
             disabled={isSending || historyLoading}
-            onChange={event => setMessage(event.target.value)}
+            onChange={e => setMessage(e.target.value)}
             onKeyDown={handleKey}
           />
 
           <button
             className="chat-send"
-            type="button"
-            aria-label="Send message"
-            disabled={
-              !message.trim() ||
-              isSending ||
-              historyLoading
-            }
+            disabled={!message.trim() || isSending || historyLoading}
             onClick={() => sendMessage()}
           >
             ➤
@@ -627,125 +354,58 @@ function Chat() {
   );
 }
 
-function recommendationItems(data) {
-  return Array.isArray(data?.recommendations)
-    ? data.recommendations.filter(
-        item =>
-          item &&
-          typeof item.what === "string" &&
-          item.what.trim()
-      )
-    : [];
-}
-
 function RecommendationCards({ data }) {
   return (
     <div className="recommendation-results">
       <div className="recommendation-heading">
         <div>
           <strong>Evidence-aware recommendations</strong>
-          <p>
-            Personalized using your request and saved profile.
-          </p>
+          <p>Personalized using your request and saved profile.</p>
         </div>
-
-        <span className="recommendation-method">
-          Structured Evidence
-        </span>
+        <span className="recommendation-method">Structured Evidence</span>
       </div>
 
-      {recommendationItems(data).map((item, index) => (
-        <div
-          className="recommendation-card"
-          key={`${item.evidence?.source || "food"}:${item.evidence?.sourceId || index}:${index}`}
-        >
+      {recommendationItems(data).map((item, i) => (
+        <div className="recommendation-card" key={`${item.evidence?.sourceId || i}-${i}`}>
           <div className="recommendation-title">
-            <span className="recommendation-number">
-              {index + 1}
-            </span>
-
+            <span className="recommendation-number">{i + 1}</span>
             <div>
               <small>RECOMMENDATION</small>
               <h3>{item.what}</h3>
             </div>
           </div>
 
-          <div className="recommendation-section">
-            <strong>Why?</strong>
-
-            {(Array.isArray(item.why) ? item.why : [])
-              .filter(
-                reason =>
-                  typeof reason === "string" &&
-                  reason.trim()
-              )
-              .map((reason, i) => (
-                <p key={i} className="recommendation-why">
-                  ✓ {reason}
-                </p>
+          {!!item.why?.length && (
+            <div className="recommendation-section">
+              <strong>Why?</strong>
+              {item.why.map((reason, j) => (
+                <p key={j} className="recommendation-why">✓ {reason}</p>
               ))}
-          </div>
+            </div>
+          )}
 
           <div className="recommendation-section">
             <strong>Evidence</strong>
-
             <div className="recommendation-evidence">
-              <EvidenceValue
-                label="Protein"
-                value={item.evidence?.protein}
-                unit="g"
-              />
-
-              <EvidenceValue
-                label="Calories"
-                value={item.evidence?.calories}
-                unit="kcal"
-              />
-
-              <EvidenceValue
-                label="Fiber"
-                value={item.evidence?.fiber}
-                unit="g"
-              />
-
-              <EvidenceValue
-                label="Reference"
-                value={item.evidence?.servingSize}
-                unit={item.evidence?.servingUnit}
-              />
+              <Evidence label="Protein" value={item.evidence?.protein} unit="g" />
+              <Evidence label="Calories" value={item.evidence?.calories} unit="kcal" />
+              <Evidence label="Fiber" value={item.evidence?.fiber} unit="g" />
+              <Evidence label="Reference" value={item.evidence?.servingSize} unit={item.evidence?.servingUnit} />
             </div>
           </div>
 
-          {typeof item.reason === "string" &&
-            item.reason.trim() && (
-              <div className="recommendation-section">
-                <strong>Reason</strong>
-                <p>{item.reason}</p>
-              </div>
-            )}
+          {item.reason && (
+            <div className="recommendation-section">
+              <strong>Reason</strong>
+              <p>{item.reason}</p>
+            </div>
+          )}
 
           <div className="recommendation-source">
-            {item.evidence?.verified === true &&
-            item.evidence?.source &&
-            item.evidence?.sourceId
-              ? (
-                <span>✓ Verified source</span>
-              )
-              : (
-                <span>Source verification unavailable</span>
-              )}
-
+            <span>{item.evidence?.verified ? "✓ Verified source" : "Source verification unavailable"}</span>
             <span>{item.evidence?.source}</span>
-
-            {item.evidence?.sourceId && (
-              <span>
-                FDC ID: {item.evidence.sourceId}
-              </span>
-            )}
-
-            {item.evidence?.dataType && (
-              <span>{item.evidence.dataType}</span>
-            )}
+            {item.evidence?.sourceId && <span>FDC ID: {item.evidence.sourceId}</span>}
+            {item.evidence?.dataType && <span>{item.evidence.dataType}</span>}
           </div>
         </div>
       ))}
@@ -753,24 +413,14 @@ function RecommendationCards({ data }) {
   );
 }
 
-function EvidenceValue({ label, value, unit }) {
-  const number = Number(value);
-
-  const available =
-    value != null &&
-    value !== "" &&
-    Number.isFinite(number);
-
-  const shown = available
-    ? Math.round(number * 100) / 100
-    : "N/A";
+function Evidence({ label, value, unit }) {
+  const n = Number(value);
+  const ok = value != null && value !== "" && Number.isFinite(n);
 
   return (
     <div className="recommendation-evidence-value">
       <small>{label}</small>
-      <strong>
-        {shown} {available ? unit : ""}
-      </strong>
+      <strong>{ok ? Math.round(n * 100) / 100 : "N/A"} {ok ? unit : ""}</strong>
     </div>
   );
 }
@@ -778,96 +428,38 @@ function EvidenceValue({ label, value, unit }) {
 function FormatText({ text = "" }) {
   return (
     <div>
-      {text.split("\n").map((line, index) => {
-        const value = line.trim();
+      {text.split("\n").map((line, i) => {
+        const v = line.trim();
 
-        if (!value)
+        if (!v) return <div className="chat-space" key={i} />;
+        if (/^\|?[-:\s|]+\|?$/.test(v)) return null;
+
+        if (v.startsWith("|") && v.endsWith("|"))
           return (
-            <div
-              className="chat-space"
-              key={index}
-            />
-          );
-
-        if (/^\|?[-:\s|]+\|?$/.test(value))
-          return null;
-
-        if (
-          value.startsWith("|") &&
-          value.endsWith("|")
-        ) {
-          return (
-            <div
-              className="chat-table-row"
-              key={index}
-            >
-              {value
-                .split("|")
-                .filter(Boolean)
-                .map((cell, i) => (
-                  <span key={i}>
-                    <BoldText text={cell.trim()} />
-                  </span>
-                ))}
+            <div className="chat-table-row" key={i}>
+              {v.split("|").filter(Boolean).map((cell, j) => (
+                <span key={j}><Bold text={cell.trim()} /></span>
+              ))}
             </div>
           );
-        }
 
-        if (
-          value.startsWith("- ") ||
-          value.startsWith("• ")
-        ) {
-          return (
-            <div
-              className="chat-list-line"
-              key={index}
-            >
-              <span>•</span>
-              <BoldText text={value.slice(2)} />
-            </div>
-          );
-        }
+        if (/^[-•]\s/.test(v))
+          return <div className="chat-list-line" key={i}><span>•</span><Bold text={v.slice(2)} /></div>;
 
-        const step = value.match(/^(\d+)\.\s+(.*)/);
+        const step = v.match(/^(\d+)\.\s+(.*)/);
+        if (step)
+          return <div className="chat-step" key={i}><span>{step[1]}</span><Bold text={step[2]} /></div>;
 
-        if (step) {
-          return (
-            <div
-              className="chat-step"
-              key={index}
-            >
-              <span>{step[1]}</span>
-              <BoldText text={step[2]} />
-            </div>
-          );
-        }
-
-        return (
-          <div
-            className="chat-line"
-            key={index}
-          >
-            <BoldText text={value} />
-          </div>
-        );
+        return <div className="chat-line" key={i}><Bold text={v} /></div>;
       })}
     </div>
   );
 }
 
-function BoldText({ text }) {
-  return text
-    .split(/(\*\*.*?\*\*)/g)
-    .map((part, index) =>
-      part.startsWith("**") &&
-      part.endsWith("**")
-        ? (
-          <strong key={index}>
-            {part.slice(2, -2)}
-          </strong>
-        )
-        : part
-    );
+function Bold({ text = "" }) {
+  return text.split(/(\*\*.*?\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**")
+      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      : part
+  );
 }
-
-export default Chat;
