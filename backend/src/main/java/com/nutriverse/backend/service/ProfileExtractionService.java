@@ -4,7 +4,12 @@ import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,23 +18,29 @@ import java.util.regex.Pattern;
 public class ProfileExtractionService {
 
     private static final Pattern DISLIKE = Pattern.compile(
-            "\\b(?:i don't like|i do not like|i dislike|i hate|"
-                    + "i cannot eat|i can't eat|avoid|exclude)\\s+([^.!?]{1,100})",
+            "\\b(?:"
+                    + "i don't like|i do not like|"
+                    + "i dislike|i hate|"
+                    + "i don't eat|i do not eat|"
+                    + "i don't consume|i do not consume|"
+                    + "i cannot eat|i can't eat|"
+                    + "i cannot have|i can't have|"
+                    + "avoid|exclude"
+                    + ")\\s+([^.!?]{1,100})",
             Pattern.CASE_INSENSITIVE
     );
 
-    private final NutritionProfileRepository repository;
+    private final NutritionProfileRepository profileRepository;
     private final DailyTargetService dailyTargetService;
 
-    // Temporary conversation state only
     private final Map<String, String> awaitingFields =
             new ConcurrentHashMap<>();
 
     public ProfileExtractionService(
-            NutritionProfileRepository repository,
+            NutritionProfileRepository profileRepository,
             DailyTargetService dailyTargetService
     ) {
-        this.repository = repository;
+        this.profileRepository = profileRepository;
         this.dailyTargetService = dailyTargetService;
     }
 
@@ -37,27 +48,25 @@ public class ProfileExtractionService {
             String userId,
             String message
     ) {
-
-        if (userId == null ||
-                message == null ||
-                message.isBlank())
+        if (userId == null
+                || message == null
+                || message.isBlank()) {
             return;
+        }
 
         String text = normalize(message);
         String awaited = awaitingFields.remove(userId);
 
-        NutritionProfile profile = repository
-                .findByUserId(userId)
-                .orElseGet(() ->
-                        new NutritionProfile(userId)
-                );
+        NutritionProfile profile =
+                profileRepository.findByUserId(userId)
+                        .orElseGet(
+                                () -> new NutritionProfile(userId)
+                        );
 
         boolean changed = false;
 
-        Integer age = age(
-                text,
-                "age".equals(awaited)
-        );
+        Integer age =
+                age(text, "age".equals(awaited));
 
         if (age != null) {
             profile.setAge(age);
@@ -174,30 +183,12 @@ public class ProfileExtractionService {
             changed = true;
         }
 
-        // Medical dietary restriction
-        if (declaresGlutenRestriction(text) &&
-                !"GLUTEN_FREE".equals(
-                        profile.getDietaryRestriction()
-                )) {
+        if (declaresGlutenRestriction(text)
+                && !"GLUTEN_FREE".equals(
+                profile.getDietaryRestriction())) {
 
             profile.setDietaryRestriction(
                     "GLUTEN_FREE"
-            );
-
-            changed = true;
-        }
-
-        // Explicit cultural / religious food preference
-        String religiousDiet =
-                extractReligiousDiet(text);
-
-        if (religiousDiet != null &&
-                !religiousDiet.equals(
-                        profile.getReligiousDiet()
-                )) {
-
-            profile.setReligiousDiet(
-                    religiousDiet
             );
 
             changed = true;
@@ -207,7 +198,6 @@ public class ProfileExtractionService {
                 extractDislikes(text);
 
         if (!dislikes.isEmpty()) {
-
             String merged = mergeCsv(
                     profile.getFoodDislikes(),
                     dislikes,
@@ -215,8 +205,7 @@ public class ProfileExtractionService {
             );
 
             if (!merged.equals(
-                    profile.getFoodDislikes()
-            )) {
+                    profile.getFoodDislikes())) {
 
                 profile.setFoodDislikes(merged);
                 changed = true;
@@ -224,7 +213,7 @@ public class ProfileExtractionService {
         }
 
         if (changed) {
-            repository.save(profile);
+            profileRepository.save(profile);
             dailyTargetService.calculateTargets(userId);
         }
     }
@@ -233,97 +222,66 @@ public class ProfileExtractionService {
             String userId,
             String reply
     ) {
-
-        if (userId == null)
-            return;
+        if (userId == null) return;
 
         awaitingFields.remove(userId);
 
-        if (reply == null ||
-                !reply.contains("?"))
+        if (reply == null
+                || !reply.contains("?")) {
             return;
+        }
 
         String text = normalize(reply);
         String field = null;
 
-        if (text.contains("how old") ||
-                text.contains("your age")) {
+        if (text.contains("how old")
+                || text.contains("your age")) {
 
             field = "age";
 
-        } else if (text.contains("your height") ||
-                text.contains("how tall")) {
+        } else if (
+                text.contains("your height")
+                        || text.contains("how tall")) {
 
             field = "height";
 
-        } else if (text.contains("your weight") ||
-                text.contains("how much do you weigh")) {
+        } else if (
+                text.contains("your weight")
+                        || text.contains(
+                        "how much do you weigh")) {
 
             field = "weight";
 
-        } else if (text.contains("your activity level") ||
-                text.contains("how active") ||
-                (text.contains("how many days") &&
-                        text.contains("exercise"))) {
+        } else if (
+                text.contains("your activity level")
+                        || text.contains("how active")
+                        || text.contains("how many days")
+                        && text.contains("exercise")) {
 
             field = "activityLevel";
         }
 
         if (field != null) {
-
-            if (awaitingFields.size() >= 1000)
+            if (awaitingFields.size() >= 1000) {
                 awaitingFields.clear();
+            }
 
             awaitingFields.put(userId, field);
         }
     }
 
-    // Used when chat history is deleted.
-    // Saved profile values remain untouched.
     public void clearPendingState(String userId) {
-
         if (userId != null) {
             awaitingFields.remove(userId);
         }
     }
 
-    private String extractReligiousDiet(
-            String text
-    ) {
-
-        if (text.matches(
-                ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
-                        + "(?:a\\s+)?jain(?:\\s+diet|\\s+food)?.*"
-        )) {
-            return "JAIN";
-        }
-
-        if (text.matches(
-                ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
-                        + "(?:a\\s+)?halal(?:\\s+diet|\\s+food)?.*"
-        )) {
-            return "HALAL";
-        }
-
-        if (text.contains("keep kosher") ||
-                text.matches(
-                        ".*\\b(?:follow|eat|prefer|want|need|only eat)\\s+"
-                                + "(?:a\\s+)?kosher(?:\\s+diet|\\s+food)?.*"
-                )) {
-            return "KOSHER";
-        }
-
-        return null;
-    }
-
     private boolean declaresGlutenRestriction(
             String text
     ) {
-
-        if (text.contains("don't have celiac") ||
-                text.contains("do not have celiac") ||
-                text.contains("not celiac")) {
-
+        if (text.contains("don't have celiac")
+                || text.contains("do not have celiac")
+                || text.contains("not celiac")) {
             return false;
         }
 
@@ -335,28 +293,32 @@ public class ProfileExtractionService {
                 || text.contains("gluten-free")
                 || text.contains("can't eat gluten")
                 || text.contains("cannot eat gluten")
+                || text.contains("can't have gluten")
+                || text.contains("cannot have gluten")
                 || text.contains("avoid gluten");
     }
 
     private List<String> extractDislikes(
             String text
     ) {
-
         Matcher matcher =
                 DISLIKE.matcher(text);
 
-        if (!matcher.find())
+        if (!matcher.find()) {
             return List.of();
+        }
 
-        String value = matcher.group(1)
-                .replaceAll(
-                        "\\b(?:please|anymore|right now)\\b",
-                        ""
-                )
-                .trim();
+        String value =
+                matcher.group(1)
+                        .replaceAll(
+                                "\\b(?:please|anymore|right now|from now on)\\b",
+                                ""
+                        )
+                        .trim();
 
-        if (value.isEmpty())
+        if (value.isEmpty()) {
             return List.of();
+        }
 
         List<String> result =
                 new ArrayList<>();
@@ -368,16 +330,17 @@ public class ProfileExtractionService {
 
             String food = part.trim();
 
-            if (food.length() < 2 ||
-                    food.length() > 50)
+            if (food.length() < 2
+                    || food.length() > 50) {
                 continue;
+            }
 
-            // Gluten is stored as a restriction,
-            // not as an ordinary dislike.
-            if ("gluten".equals(food) ||
-                    food.contains("celiac") ||
-                    food.contains("coeliac"))
+            // Gluten is stored as a dietary restriction instead.
+            if ("gluten".equals(food)
+                    || food.contains("celiac")
+                    || food.contains("coeliac")) {
                 continue;
+            }
 
             result.add(food);
         }
@@ -390,54 +353,55 @@ public class ProfileExtractionService {
             List<String> additions,
             int maxLength
     ) {
-
         Set<String> values =
                 new LinkedHashSet<>();
 
-        if (existing != null &&
-                !existing.isBlank()) {
+        if (existing != null
+                && !existing.isBlank()) {
 
             for (String item :
                     existing.split(",")) {
 
                 String value = item.trim();
 
-                if (!value.isEmpty())
+                if (!value.isEmpty()) {
                     values.add(value);
+                }
             }
         }
 
         values.addAll(additions);
 
-        StringBuilder output =
+        StringBuilder out =
                 new StringBuilder();
 
         for (String value : values) {
-
             String next =
-                    output.isEmpty()
+                    out.isEmpty()
                             ? value
                             : ", " + value;
 
-            if (output.length() +
-                    next.length() > maxLength)
+            if (out.length()
+                    + next.length()
+                    > maxLength) {
                 break;
+            }
 
-            output.append(next);
+            out.append(next);
         }
 
-        return output.toString();
+        return out.toString();
     }
 
     private Integer age(
             String text,
             boolean awaited
     ) {
-
         String value = match(
                 text,
                 "\\b(?:i am|i'm)\\s+(?:a\\s+)?"
-                        + "(\\d{1,3})\\s*(?:years? old|y/o)\\b"
+                        + "(\\d{1,3})\\s*"
+                        + "(?:years? old|y/o)\\b"
         );
 
         if (value == null) {
@@ -457,8 +421,7 @@ public class ProfileExtractionService {
             );
         }
 
-        if (value == null)
-            return null;
+        if (value == null) return null;
 
         int age =
                 Integer.parseInt(value);
@@ -476,7 +439,6 @@ public class ProfileExtractionService {
             double max,
             boolean awaited
     ) {
-
         String prefix =
                 "weight".equals(field)
                         ? "(?:i weigh|my weight is|i am|i'm)"
@@ -484,35 +446,40 @@ public class ProfileExtractionService {
 
         String value = match(
                 text,
-                "\\b" + prefix
+                "\\b"
+                        + prefix
                         + "\\s+(\\d{2,3}(?:\\.\\d{1,2})?)"
-                        + "\\s*" + unit + "\\b"
+                        + "\\s*"
+                        + unit
+                        + "\\b"
         );
 
         if (value == null) {
             value = match(
                     text,
                     "^(\\d{2,3}(?:\\.\\d{1,2})?)"
-                            + "\\s*" + unit + "[.!]?$"
+                            + "\\s*"
+                            + unit
+                            + "[.!]?$"
             );
         }
 
         if (value == null && awaited) {
             value = match(
                     text,
-                    "^(\\d{2,3}(?:\\.\\d{1,2})?)[.!]?$"
+                    "^(\\d{2,3}(?:\\.\\d{1,2})?)"
+                            + "[.!]?$"
             );
         }
 
-        if (value == null)
-            return null;
+        if (value == null) return null;
 
-        double result =
+        double measurement =
                 Double.parseDouble(value);
 
-        return result >= min &&
-                result <= max
-                ? result
+        return measurement >= min
+                && measurement <= max
+                ? measurement
                 : null;
     }
 
@@ -521,8 +488,7 @@ public class ProfileExtractionService {
             String prefix,
             Map<String, String> choices
     ) {
-
-        List<String> options =
+        for (String option :
                 choices.keySet()
                         .stream()
                         .sorted(
@@ -532,24 +498,21 @@ public class ProfileExtractionService {
                                                 a.length()
                                         )
                         )
-                        .toList();
-
-        for (String option : options) {
+                        .toList()) {
 
             String quoted =
                     Pattern.quote(option);
 
             if (text.matches(
-                    "^" + quoted + "[.!]?$"
-            ) ||
-                    Pattern.compile(
-                                    "\\b"
-                                            + prefix
-                                            + quoted
-                                            + "\\b"
-                            )
-                            .matcher(text)
-                            .find()) {
+                    "^"
+                            + quoted
+                            + "[.!]?$"
+            ) || Pattern.compile(
+                    "\\b"
+                            + prefix
+                            + quoted
+                            + "\\b"
+            ).matcher(text).find()) {
 
                 return choices.get(option);
             }
@@ -562,7 +525,6 @@ public class ProfileExtractionService {
             String text,
             boolean awaited
     ) {
-
         String days = match(
                 text,
                 "\\bi (?:exercise|work out|workout|train)"
@@ -573,13 +535,14 @@ public class ProfileExtractionService {
         if (days == null && awaited) {
             days = match(
                     text,
-                    "^([0-7])(?: (?:days?|times?)"
-                            + " (?:a|per) week)?[.!]?$"
+                    "^([0-7])"
+                            + "(?: (?:days?|times?)"
+                            + " (?:a|per) week)?"
+                            + "[.!]?$"
             );
         }
 
-        if (days == null)
-            return null;
+        if (days == null) return null;
 
         int count =
                 Integer.parseInt(days);
@@ -600,7 +563,6 @@ public class ProfileExtractionService {
             String text,
             String regex
     ) {
-
         Matcher matcher =
                 Pattern.compile(regex)
                         .matcher(text);
@@ -610,8 +572,9 @@ public class ProfileExtractionService {
                 : null;
     }
 
-    private String normalize(String text) {
-
+    private String normalize(
+            String text
+    ) {
         return text.toLowerCase(Locale.ROOT)
                 .trim()
                 .replace('\u2019', '\'')
