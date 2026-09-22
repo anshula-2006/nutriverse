@@ -3,11 +3,12 @@ package com.nutriverse.backend.controller;
 import com.nutriverse.backend.dto.ChatHistoryItem;
 import com.nutriverse.backend.dto.ChatRequest;
 import com.nutriverse.backend.dto.ChatResponse;
+import com.nutriverse.backend.service.CompositeMealService;
 import com.nutriverse.backend.service.GroqService;
 import com.nutriverse.backend.service.RecommendationService;
 
 import jakarta.validation.Valid;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,21 +20,38 @@ public class ChatController {
 
     private final GroqService groqService;
     private final RecommendationService recommendationService;
+    private final CompositeMealService compositeMealService;
 
-    public ChatController(GroqService groqService, RecommendationService recommendationService) {
+    @Autowired
+    public ChatController(
+            GroqService groqService,
+            RecommendationService recommendationService,
+            CompositeMealService compositeMealService
+    ) {
         this.groqService = groqService;
         this.recommendationService = recommendationService;
+        this.compositeMealService = compositeMealService;
+    }
+
+    // Keeps existing tests compatible
+    public ChatController(
+            GroqService groqService,
+            RecommendationService recommendationService
+    ) {
+        this(groqService, recommendationService, null);
     }
 
     @GetMapping
     public List<ChatHistoryItem> history(
-            @RequestAttribute("authenticatedUserId") String userId) {
+            @RequestAttribute("authenticatedUserId") String userId
+    ) {
         return recommendationService.getChatHistory(userId);
     }
 
     @DeleteMapping
     public ResponseEntity<Void> clearHistory(
-            @RequestAttribute("authenticatedUserId") String userId) {
+            @RequestAttribute("authenticatedUserId") String userId
+    ) {
         recommendationService.clearChatHistory(userId);
         return ResponseEntity.noContent().build();
     }
@@ -41,18 +59,51 @@ public class ChatController {
     @PostMapping
     public ChatResponse chat(
             @RequestAttribute("authenticatedUserId") String userId,
-            @Valid @RequestBody ChatRequest request) {
+            @Valid @RequestBody ChatRequest request
+    ) {
 
+        // Homemade/composite meal flow
         if (request.getSourceId() == null
-                && recommendationService.isStructuredFollowup(userId, request.getMessage())) {
-            return new ChatResponse("Here are additional verified options.",
-                    recommendationService.recommend(userId, request.getMessage()));
+                && compositeMealService != null) {
+
+            ChatResponse composite =
+                    compositeMealService.handle(
+                            userId,
+                            request.getMessage()
+                    );
+
+            if (composite != null)
+                return composite;
         }
 
-        String reply = request.getSourceId() == null ? groqService.getReply(
+        // Recommendation follow-up
+        if (request.getSourceId() == null
+                && recommendationService.isStructuredFollowup(
                 userId,
                 request.getMessage()
-        ) : groqService.getReply(userId, request.getMessage(), request.getSource(), request.getSourceId());
+        )) {
+
+            return new ChatResponse(
+                    "Here are additional verified options.",
+                    recommendationService.recommend(
+                            userId,
+                            request.getMessage()
+                    )
+            );
+        }
+
+        // Normal chat / selected food
+        String reply = request.getSourceId() == null
+                ? groqService.getReply(
+                userId,
+                request.getMessage()
+        )
+                : groqService.getReply(
+                userId,
+                request.getMessage(),
+                request.getSource(),
+                request.getSourceId()
+        );
 
         return new ChatResponse(reply);
     }

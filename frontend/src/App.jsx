@@ -1,27 +1,28 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import Home from "./Home.jsx";
-import Register from "./Register.jsx";
 import Login from "./Login.jsx";
-import Chat from "./Chat.jsx";
+import Register from "./Register.jsx";
 import Dashboard from "./Dashboard.jsx";
+import Chat from "./Chat.jsx";
 import Profile from "./Profile.jsx";
+import InfoPage from "./InfoPage.jsx";
 
-function App() {
+export default function App() {
   return (
     <Routes>
-
       <Route path="/" element={<Home />} />
 
-      <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-      <Route path="/chat" element={<Chat />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/chat" element={<Chat />} />
       <Route path="/profile" element={<Profile />} />
 
+      <Route path="/:page" element={<InfoPage />} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
-
-export default App;

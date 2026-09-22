@@ -2,156 +2,235 @@ import { Link } from "react-router-dom";
 import homeHero from "./assets/images/home-hero.jpg";
 import "./Home.css";
 
-function Home() {
+export default function Home() {
   return (
     <div className="home-page">
 
-      <nav className="home-nav">
+      <header className="home-nav">
+        <Link to="/" className="home-logo">
+          NutriVerse
+        </Link>
 
-        <div className="home-logo">
-          🌿 Nutri<span>Verse</span>
-        </div>
-
-        <div className="home-links">
-          <a href="#features">Features</a>
-          <a href="#how">How it works</a>
-
-          <Link to="/login" className="home-login">
-            Login
-          </Link>
-
+        <nav>
+          <a href="#product">Product</a>
+          <a href="#method">Method</a>
+          <Link to="/login">Sign in</Link>
           <Link to="/register" className="home-start">
-            Get Started
+            Create account
           </Link>
-        </div>
+        </nav>
+      </header>
 
-      </nav>
 
+      <main>
 
-      <main className="home-hero">
+        <section className="home-hero">
+          <div className="home-copy">
+            <small>EVIDENCE-AWARE PERSONAL NUTRITION</small>
 
-        <div className="home-text">
+            <h1>
+              Nutrition guidance with the evidence in view.
+            </h1>
 
-          <span className="home-label">
-            AI-POWERED PERSONALIZED NUTRITION
-          </span>
+            <p>
+              NutriVerse combines your nutrition profile with
+              food databases, explainable recommendations and
+              ingredient-based estimates for homemade meals.
+            </p>
 
-          <h1>
-            Eat better.
-            <br />
-            Understand <span>why.</span>
-          </h1>
+            <div className="home-actions">
+              <Link to="/register" className="primary">
+                Create account
+              </Link>
 
-          <p>
-            NutriVerse helps you make healthier food choices
-            with personalized recommendations based on your
-            goals, preferences and nutrition needs.
-          </p>
+              <Link to="/login" className="secondary">
+                Sign in
+              </Link>
+            </div>
 
-          <div className="home-buttons">
+            <dl className="home-facts">
+              <div>
+                <dt>Primary source</dt>
+                <dd>USDA FoodData Central</dd>
+              </div>
 
-            <Link to="/register" className="primary-home-btn">
-              Start Your Journey →
-            </Link>
+              <div>
+                <dt>Product data</dt>
+                <dd>Open Food Facts where appropriate</dd>
+              </div>
 
-            <Link to="/login" className="secondary-home-btn">
-              I already have an account
-            </Link>
-
+              <div>
+                <dt>Homemade meals</dt>
+                <dd>Ingredient-based per-serving estimates</dd>
+              </div>
+            </dl>
           </div>
 
 
-          <div className="home-trust">
-            <span>🥗 Personalized</span>
-            <span>🧠 Explainable</span>
-            <span>🌿 Health Focused</span>
+          <figure className="home-image">
+            <img
+              src={homeHero}
+              alt="Fresh ingredients used for balanced meals"
+            />
+
+            <figcaption>
+              Nutrition values, source information and estimation
+              method remain visible where available.
+            </figcaption>
+          </figure>
+        </section>
+
+
+        <section className="home-product" id="product">
+          <div>
+            <small>THE PRODUCT</small>
+
+            <h2>
+              Built around real nutrition evidence.
+            </h2>
+
+            <p>
+              NutriVerse does more than generate conversational
+              answers. It connects recommendations to structured
+              food information and user context.
+            </p>
           </div>
 
-        </div>
+          <dl className="home-record">
+            <div>
+              <dt>Food search</dt>
+              <dd>
+                Search nutrition records and keep the original
+                source identifier visible.
+              </dd>
+            </div>
+
+            <div>
+              <dt>Personalization</dt>
+              <dd>
+                Use diet, goal, activity level, preferences and
+                restrictions when relevant.
+              </dd>
+            </div>
+
+            <div>
+              <dt>Recommendations</dt>
+              <dd>
+                Show nutrition evidence alongside the reason a
+                food matches the request.
+              </dd>
+            </div>
+
+            <div>
+              <dt>Recipe estimation</dt>
+              <dd>
+                Calculate homemade meal nutrition using verified
+                ingredient records and supplied quantities.
+              </dd>
+            </div>
+          </dl>
+        </section>
 
 
-        <div className="home-image">
+        <section className="home-method" id="method">
+          <header>
+            <small>METHOD</small>
 
-          <img
-            src={homeHero}
-            alt="Healthy nutritious foods"
-          />
+            <h2>
+              From question to explainable result.
+            </h2>
+          </header>
 
-          <div className="home-floating-card">
-            <strong>🌱 Better choices, one meal at a time.</strong>
-            <small>
-              Nutrition recommendations designed around you.
-            </small>
+          <div className="home-steps">
+            <Step
+              number="01"
+              title="Understand the request"
+              text="Identify the food, meal, nutrient requirement or recommendation intent."
+            />
+
+            <Step
+              number="02"
+              title="Apply profile context"
+              text="Use saved dietary preferences, goals and restrictions where relevant."
+            />
+
+            <Step
+              number="03"
+              title="Retrieve evidence"
+              text="Search the appropriate nutrition source before presenting quantitative food claims."
+            />
+
+            <Step
+              number="04"
+              title="Explain the result"
+              text="Present nutrition values, reasoning, source information and estimation status."
+            />
+          </div>
+        </section>
+
+
+        <section className="home-info">
+          <div>
+            <small>DOCUMENTATION</small>
+
+            <h2>
+              How NutriVerse handles evidence and limitations.
+            </h2>
           </div>
 
-        </div>
+          <nav>
+            <Link to="/about">About NutriVerse</Link>
+            <Link to="/methodology">Methodology</Link>
+            <Link to="/sources">Data sources</Link>
+            <Link to="/disclaimer">Nutrition disclaimer</Link>
+          </nav>
+        </section>
 
       </main>
 
 
-      <section className="home-features" id="features">
-
+      <footer className="home-footer">
         <div>
-          <span>🤖</span>
-          <h3>AI Nutrition Assistant</h3>
-          <p>
-            Ask Nutri about meals, recipes and healthier choices.
-          </p>
+          <strong>NutriVerse</strong>
+          <small>Explainable personalized nutrition</small>
         </div>
 
-        <div>
-          <span>🎯</span>
-          <h3>Personalized Nutrition</h3>
-          <p>
-            Recommendations adapt to your diet, goals and lifestyle.
-          </p>
-        </div>
-
-        <div>
-          <span>🔎</span>
-          <h3>Explainable Choices</h3>
-          <p>
-            Understand why foods and recipes are recommended.
-          </p>
-        </div>
-
-      </section>
-
-
-      <section className="home-how" id="how">
-
-        <span>HOW NUTRIVERSE WORKS</span>
-
-        <h2>
-          Nutrition that understands you.
-        </h2>
-
-        <div className="home-steps">
-
+        <div className="home-footer-links">
           <div>
-            <strong>01</strong>
-            <h3>Tell us about you</h3>
-            <p>Your diet, goals and lifestyle.</p>
+            <strong>Product</strong>
+            <Link to="/about">About</Link>
+            <Link to="/methodology">Methodology</Link>
+            <Link to="/sources">Data sources</Link>
           </div>
 
           <div>
-            <strong>02</strong>
-            <h3>Ask Nutri</h3>
-            <p>Get personalized food and recipe guidance.</p>
+            <strong>Legal</strong>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+            <Link to="/disclaimer">Nutrition disclaimer</Link>
           </div>
 
           <div>
-            <strong>03</strong>
-            <h3>Understand why</h3>
-            <p>See how foods connect to nutrients and your goals.</p>
+            <strong>Account</strong>
+            <Link to="/login">Sign in</Link>
+            <Link to="/register">Create account</Link>
           </div>
-
         </div>
-
-      </section>
+      </footer>
 
     </div>
   );
 }
 
-export default Home;
+function Step({ number, title, text }) {
+  return (
+    <article>
+      <strong>{number}</strong>
+
+      <div>
+        <h3>{title}</h3>
+        <p>{text}</p>
+      </div>
+    </article>
+  );
+}

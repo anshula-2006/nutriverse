@@ -1,52 +1,48 @@
 :root {
-  font-family:
-    "Segoe UI",
-    Arial,
-    sans-serif;
+  font-family: "Segoe UI", Arial, sans-serif;
 
-  color: #243022;
+  color: #202a22;
+  background: #ece7dc;
 
-  background: #f5f1e6;
+  --nv-bg: #ece7dc;
+  --nv-surface: #f4f0e6;
+  --nv-surface-muted: #e3ded3;
 
-  --nv-cream: #f5f1e6;
-  --nv-cream-soft: #fbf9f2;
-  --nv-white: #fffdf8;
+  --nv-ink: #202a22;
+  --nv-dark: #202a22;
 
-  --nv-dark: #26351d;
-  --nv-olive: #44552d;
-  --nv-green: #657a49;
-  --nv-green-light: #e7ecdc;
+  --nv-olive: #2b4031;
+  --nv-green: #405746;
+  --nv-green-light: #dedfd5;
 
-  --nv-muted: #626b59;
-  --nv-border: #e5e3d9;
+  --nv-muted: #696e67;
+  --nv-border: #c7c4b9;
 
-  --nv-shadow:
-    0 18px 50px
-    rgba(50, 61, 37, 0.08);
+  --nv-danger: #713b36;
+  --nv-danger-bg: #eee2dc;
 }
-
 
 * {
   box-sizing: border-box;
 }
 
-
 html,
 body,
 #root {
-  margin: 0;
-
   width: 100%;
   min-height: 100%;
+  margin: 0;
 }
 
+html {
+  background: var(--nv-bg);
+}
 
 body {
   min-height: 100vh;
-
-  background: var(--nv-cream);
+  background: var(--nv-bg);
+  color: var(--nv-ink);
 }
-
 
 button,
 input,
@@ -55,90 +51,491 @@ textarea {
   font: inherit;
 }
 
-
 button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+a {
+  color: var(--nv-olive);
+}
+
+img {
+  max-width: 100%;
+}
+
+::selection {
+  background: #cdd0c6;
+  color: #19221b;
+}
+
 :focus-visible {
-  outline: 3px solid var(--nv-green);
+  outline: 2px solid #304638;
   outline-offset: 3px;
 }
 
-button:disabled { cursor: not-allowed; opacity: .6; }
-a { color: var(--nv-olive); }
-img { max-width: 100%; }
+
+/* APP NAV */
 
 .app-nav {
   position: sticky;
   top: 0;
+
   width: 228px;
   height: 100dvh;
   flex: 0 0 228px;
+
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  justify-content: space-between;
+
   padding: 30px 20px;
-  background: var(--nv-white);
+
   border-right: 1px solid var(--nv-border);
+
+  background: var(--nv-surface);
+
   overflow-y: auto;
 }
 
 .app-brand {
-  color: var(--nv-olive);
-  font-family: Georgia, serif;
-  font-size: 27px;
-  font-weight: 700;
+  display: inline-block;
+
+  color: #24362a;
+
+  font: 600 26px Georgia, "Times New Roman", serif;
+
+  letter-spacing: -.02em;
   text-decoration: none;
 }
 
-.app-nav nav { display: grid; gap: 8px; }
-.app-nav nav a {
-  padding: 13px 15px;
-  border-radius: 12px;
-  color: var(--nv-muted);
+.app-links {
+  display: grid;
+  gap: 2px;
+
+  margin-top: 40px;
+}
+
+.app-links a {
+  padding: 11px 9px;
+
+  border-left: 2px solid transparent;
+
+  color: #626861;
+
+  font-size: 13px;
+  font-weight: 600;
+
   text-decoration: none;
-  font-size: 14px;
+}
+
+.app-links a.active {
+  border-left-color: #304638;
+
+  color: #24372b;
+
+  background: #e5e0d5;
+}
+
+.app-links a:hover {
+  color: #24372b;
+}
+
+
+/* ACCOUNT */
+
+.app-account {
+  padding-top: 18px;
+
+  border-top: 1px solid var(--nv-border);
+}
+
+.app-user {
+  margin-bottom: 17px;
+}
+
+.app-user small {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #777c75;
+
+  font-size: 8px;
+  font-weight: 700;
+
+  letter-spacing: .11em;
+}
+
+.app-user strong {
+  display: block;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  color: #2b3c31;
+
+  font-size: 13px;
+}
+
+.app-reference-links {
+  display: grid;
+
+  margin-bottom: 16px;
+}
+
+.app-reference-links a {
+  padding: 5px 0;
+
+  color: #697069;
+
+  font-size: 9px;
+
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.app-account button {
+  width: 100%;
+
+  padding: 9px 11px;
+
+  border: 1px solid var(--nv-border);
+  border-radius: 2px;
+
+  background: transparent;
+  color: #304638;
+
+  font-size: 11px;
   font-weight: 600;
 }
-.app-nav nav a:hover, .app-nav nav a.active {
-  color: var(--nv-olive);
-  background: var(--nv-green-light);
+
+
+/* SHARED ALERTS */
+
+[role="alert"] {
+  color: var(--nv-danger);
 }
-.app-nav-account { margin-top: auto; }
-.app-nav-user { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.app-nav-user > span {
-  width: 36px; height: 36px; flex-shrink: 0;
-  display: grid; place-items: center;
-  border-radius: 50%; background: var(--nv-green-light); color: var(--nv-olive);
-}
-.app-nav-user > div { min-width: 0; }
-.app-nav-user strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.app-nav-user small { color: var(--nv-muted); font-size: 11px; }
-.app-nav-account button {
-  width: 100%; padding: 10px 14px; border: 1px solid var(--nv-border);
-  border-radius: 999px; background: transparent; color: var(--nv-olive);
-}
-.app-nav-account button:hover { background: var(--nv-green-light); }
+
+
+/* TABLET / MOBILE */
 
 @media (max-width: 800px) {
-  .dash-page, .profile-page, .chat-page { flex-direction: column; }
-  .app-nav {
-    position: relative; width: 100%; height: auto; flex: 0 0 auto;
-    padding: 14px 16px; display: grid; grid-template-columns: 1fr auto;
-    align-items: center; gap: 12px; overflow: visible;
-    border-right: 0; border-bottom: 1px solid var(--nv-border);
+  .dash-page,
+  .profile-page,
+  .chat-page {
+    flex-direction: column;
   }
-  .app-brand { font-size: 24px; }
-  .app-nav nav { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
-  .app-nav nav a { padding: 10px 4px; text-align: center; font-size: 12px; }
-  .app-nav-account { margin: 0; display: flex; align-items: center; gap: 9px; }
-  .app-nav-user { margin: 0; }
-  .app-nav-user > span, .app-nav-user small { display: none; }
-  .app-nav-user strong { max-width: 72px; font-size: 12px; }
-  .app-nav-account button { width: auto; padding: 8px 11px; font-size: 12px; }
+
+  .app-nav {
+    position: relative;
+
+    width: 100%;
+    height: auto;
+    flex: 0 0 auto;
+
+    display: grid;
+    grid-template-columns: 1fr auto;
+
+    gap: 12px;
+
+    padding: 15px 17px;
+
+    border-right: 0;
+    border-bottom: 1px solid var(--nv-border);
+
+    overflow: visible;
+  }
+
+  .app-nav > div:first-child {
+    display: contents;
+  }
+
+  .app-brand {
+    font-size: 22px;
+  }
+
+  .app-links {
+    grid-column: 1 / -1;
+    grid-row: 2;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 0;
+
+    margin: 0;
+
+    border-top: 1px solid var(--nv-border);
+  }
+
+  .app-links a {
+    padding: 10px 5px;
+
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+
+    text-align: center;
+
+    font-size: 11px;
+  }
+
+  .app-links a.active {
+    border-bottom-color: #304638;
+
+    background: transparent;
+  }
+
+  .app-account {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    padding: 0;
+
+    border-top: 0;
+  }
+
+  .app-user {
+    margin: 0;
+
+    text-align: right;
+  }
+
+  .app-user small,
+  .app-reference-links {
+    display: none;
+  }
+
+  .app-user strong {
+    max-width: 80px;
+
+    font-size: 10px;
+  }
+
+  .app-account button {
+    width: auto;
+
+    padding: 7px 9px;
+
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-nav {
+    padding: 14px;
+  }
+
+  .app-user {
+    display: none;
+  }
+
+  .app-links a {
+    font-size: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* GLOBAL READABILITY + DENSITY PASS */
+
+body {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* Small labels */
+.home-copy > small,
+.home-product small,
+.home-method small,
+.home-info small,
+.info-heading small,
+.profile-header small,
+.profile-summary small,
+.chat-header small,
+.chat-food small,
+.chat-welcome small,
+.app-user small {
+  font-size: 11px !important;
+}
+
+/* Body copy */
+.home-copy > p,
+.home-product > div > p,
+.home-steps p,
+.home-record dd,
+.home-facts dd,
+.info-heading p,
+.info-sections p,
+.profile-header p,
+.profile-section-head p,
+.profile-note,
+.chat-header p,
+.chat-welcome p,
+.chat-bubble,
+.dash-muted {
+  font-size: 14px !important;
+}
+
+/* Navigation */
+.home-nav nav a,
+.info-nav a,
+.app-links a {
+  font-size: 13px !important;
+}
+
+/* Buttons */
+button,
+.home-actions a,
+.home-start {
+  min-height: 42px;
+  padding: 10px 16px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 600;
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  min-height: 44px;
+  border-radius: 5px !important;
+  font-size: 14px !important;
+}
+
+/* Cards and panels */
+.profile-section,
+.chat-bubble,
+.chat-welcome,
+.dash-card,
+.dash-hero,
+.home-image {
+  border-radius: 6px !important;
+}
+
+/* Reduce excessive page spacing */
+.home-hero {
+  min-height: auto !important;
+  padding-top: 45px !important;
+  padding-bottom: 45px !important;
+}
+
+.home-product,
+.home-method,
+.home-info {
+  padding-top: 48px !important;
+  padding-bottom: 48px !important;
+}
+
+.info-document {
+  padding-top: 48px !important;
+  padding-bottom: 48px !important;
+}
+
+.profile-main {
+  padding-top: 32px !important;
+  padding-bottom: 36px !important;
+}
+
+.profile-section {
+  margin-top: 18px !important;
+  padding: 22px !important;
+}
+
+.chat-messages {
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
+}
+
+/* Reduce large gaps */
+.home-hero,
+.home-product,
+.home-info {
+  gap: clamp(28px, 5vw, 60px) !important;
+}
+
+.profile-grid {
+  gap: 14px 18px !important;
+}
+
+.home-method header {
+  margin-bottom: 24px !important;
+}
+
+.home-actions {
+  margin-top: 22px !important;
+}
+
+/* Slightly friendlier headings */
+.profile-header h1 {
+  font-size: 36px !important;
+}
+
+.chat-welcome h2 {
+  font-size: 28px !important;
+}
+
+.info-heading h1 {
+  font-size: clamp(36px, 5vw, 52px) !important;
+}
+
+/* Recommendation / evidence text */
+.recs li,
+.recs p,
+.ingredient strong,
+.ingredient span {
+  font-size: 12px !important;
+}
+
+.evidence small,
+.recs footer,
+.composite > footer,
+.ingredient small {
+  font-size: 10px !important;
+}
+
+.evidence strong {
+  font-size: 13px !important;
+}
+
+/* Footer */
+.home-footer-links a,
+.home-footer-links strong,
+.info-footer a,
+.app-reference-links a {
+  font-size: 11px !important;
+}
+
+/* Mobile */
+@media (max-width: 650px) {
+  body {
+    font-size: 14px;
+  }
+
+  .home-hero,
+  .home-product,
+  .home-method,
+  .home-info {
+    padding-top: 36px !important;
+    padding-bottom: 36px !important;
+  }
+
+  .home-copy h1 {
+    font-size: 39px !important;
+  }
 }

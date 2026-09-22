@@ -7,53 +7,47 @@ import jakarta.validation.constraints.Size;
 
 public class ProfileUpdateRequest {
 
-    @Min(value = 1, message = "Age must be at least 1")
-    @Max(value = 120, message = "Age must not exceed 120")
+    @Min(1)
+    @Max(120)
     private Integer age;
 
-    @Min(value = 50, message = "Height must be at least 50 cm")
-    @Max(value = 250, message = "Height must not exceed 250 cm")
+    @Min(50)
+    @Max(250)
     private Double height;
 
-    @Min(value = 10, message = "Weight must be at least 10 kg")
-    @Max(value = 500, message = "Weight must not exceed 500 kg")
+    @Min(10)
+    @Max(500)
     private Double weight;
 
-    @Pattern(
-            regexp = "MALE|FEMALE|OTHER",
-            message = "Gender must be MALE, FEMALE or OTHER"
-    )
+    @Pattern(regexp = "MALE|FEMALE|OTHER")
     private String gender;
 
-    @Pattern(
-            regexp = "VEGETARIAN|VEGAN|NON_VEGETARIAN",
-            message = "Invalid diet preference"
-    )
+    @Pattern(regexp = "VEGETARIAN|VEGAN|NON_VEGETARIAN")
     private String dietType;
 
     @Pattern(
-            regexp = "SEDENTARY|LIGHTLY_ACTIVE|MODERATELY_ACTIVE|VERY_ACTIVE|EXTRA_ACTIVE",
-            message = "Invalid activity level"
+            regexp = "SEDENTARY|LIGHTLY_ACTIVE|MODERATELY_ACTIVE|VERY_ACTIVE|EXTRA_ACTIVE"
     )
     private String activityLevel;
 
     @Pattern(
-            regexp = "WEIGHT_LOSS|WEIGHT_GAIN|MAINTENANCE|HEALTHY_EATING|FITNESS",
-            message = "Invalid nutrition goal"
+            regexp = "WEIGHT_LOSS|WEIGHT_GAIN|MAINTENANCE|HEALTHY_EATING|FITNESS"
     )
     private String goal;
 
-    @Size(max = 200, message = "Food preferences must not exceed 200 characters")
+    @Size(max = 200)
     private String foodPreferences;
 
-    @Size(max = 300, message = "Food dislikes must not exceed 300 characters")
+    @Size(max = 300)
     private String foodDislikes;
 
-    @Pattern(
-            regexp = "GLUTEN_FREE|NONE",
-            message = "Dietary restriction must be GLUTEN_FREE or NONE"
-    )
+    // Medical restriction
+    @Pattern(regexp = "GLUTEN_FREE|NONE")
     private String dietaryRestriction;
+
+    // Cultural / religious preference
+    @Pattern(regexp = "JAIN|HALAL|KOSHER|NONE")
+    private String religiousDiet;
 
     public Integer getAge() {
         return age;
@@ -133,5 +127,13 @@ public class ProfileUpdateRequest {
 
     public void setDietaryRestriction(String dietaryRestriction) {
         this.dietaryRestriction = dietaryRestriction;
+    }
+
+    public String getReligiousDiet() {
+        return religiousDiet;
+    }
+
+    public void setReligiousDiet(String religiousDiet) {
+        this.religiousDiet = religiousDiet;
     }
 }

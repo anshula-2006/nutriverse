@@ -8,67 +8,117 @@ import org.springframework.stereotype.Service;
 @Service
 public class NutritionProfileService {
 
-    private final NutritionProfileRepository nutritionProfileRepository;
+    private final NutritionProfileRepository repository;
     private final DailyTargetService dailyTargetService;
 
     public NutritionProfileService(
-            NutritionProfileRepository nutritionProfileRepository,
+            NutritionProfileRepository repository,
             DailyTargetService dailyTargetService
     ) {
-        this.nutritionProfileRepository = nutritionProfileRepository;
+        this.repository = repository;
         this.dailyTargetService = dailyTargetService;
     }
 
     public NutritionProfile getOrCreateProfile(String userId) {
 
-        NutritionProfile profile = nutritionProfileRepository
+        NutritionProfile profile = repository
                 .findByUserId(userId)
                 .orElseGet(() ->
-                        nutritionProfileRepository.save(new NutritionProfile(userId)));
+                        repository.save(
+                                new NutritionProfile(userId)
+                        )
+                );
 
-        NutritionProfile calculated = dailyTargetService.calculateTargets(userId);
-        return calculated == null ? profile : calculated;
+        NutritionProfile calculated =
+                dailyTargetService.calculateTargets(userId);
+
+        return calculated == null
+                ? profile
+                : calculated;
     }
 
     public NutritionProfile updateProfile(
             String userId,
             ProfileUpdateRequest request
     ) {
-        NutritionProfile profile = getOrCreateProfile(userId);
 
-        if (request.getAge() != null) profile.setAge(request.getAge());
-        if (request.getHeight() != null) profile.setHeight(request.getHeight());
-        if (request.getWeight() != null) profile.setWeight(request.getWeight());
-        if (request.getGender() != null) profile.setGender(request.getGender());
-        if (request.getDietType() != null) profile.setDietType(request.getDietType());
+        NutritionProfile profile =
+                getOrCreateProfile(userId);
+
+        if (request.getAge() != null)
+            profile.setAge(request.getAge());
+
+        if (request.getHeight() != null)
+            profile.setHeight(request.getHeight());
+
+        if (request.getWeight() != null)
+            profile.setWeight(request.getWeight());
+
+        if (request.getGender() != null)
+            profile.setGender(request.getGender());
+
+        if (request.getDietType() != null)
+            profile.setDietType(request.getDietType());
+
         if (request.getActivityLevel() != null)
-            profile.setActivityLevel(request.getActivityLevel());
-        if (request.getGoal() != null) profile.setGoal(request.getGoal());
+            profile.setActivityLevel(
+                    request.getActivityLevel()
+            );
 
-        if (request.getFoodPreferences() != null) {
-            profile.setFoodPreferences(clean(request.getFoodPreferences()));
-        }
+        if (request.getGoal() != null)
+            profile.setGoal(request.getGoal());
 
-        if (request.getFoodDislikes() != null) {
-            profile.setFoodDislikes(clean(request.getFoodDislikes()));
-        }
+        if (request.getFoodPreferences() != null)
+            profile.setFoodPreferences(
+                    clean(request.getFoodPreferences())
+            );
+
+        if (request.getFoodDislikes() != null)
+            profile.setFoodDislikes(
+                    clean(request.getFoodDislikes())
+            );
 
         if (request.getDietaryRestriction() != null) {
             profile.setDietaryRestriction(
-                    "NONE".equals(request.getDietaryRestriction())
-                            ? null
-                            : request.getDietaryRestriction()
+                    nullablePreference(
+                            request.getDietaryRestriction()
+                    )
             );
         }
 
-        nutritionProfileRepository.save(profile);
+        if (request.getReligiousDiet() != null) {
+            profile.setReligiousDiet(
+                    nullablePreference(
+                            request.getReligiousDiet()
+                    )
+            );
+        }
 
-        NutritionProfile calculated = dailyTargetService.calculateTargets(userId);
-        return calculated == null ? profile : calculated;
+        repository.save(profile);
+
+        NutritionProfile calculated =
+                dailyTargetService.calculateTargets(userId);
+
+        return calculated == null
+                ? profile
+                : calculated;
+    }
+
+    private String nullablePreference(String value) {
+        return "NONE".equals(value)
+                ? null
+                : value;
     }
 
     private String clean(String value) {
-        String cleaned = value == null ? "" : value.trim();
-        return cleaned.isEmpty() ? null : cleaned;
+
+        String cleaned =
+                value == null
+                        ? ""
+                        : value.trim();
+
+        return cleaned.isEmpty()
+                ? null
+                : cleaned;
     }
 }
