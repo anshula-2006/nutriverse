@@ -8,9 +8,9 @@ public class ChatRequest {
     @NotBlank
     @Size(max = 4000)
     private String message;
-    @Pattern(regexp = "USDA FoodData Central|Open Food Facts")
+    @Pattern(regexp = "USDA FoodData Central|Open Food Facts|ICMR-NIN IFCT 2017")
     private String source;
-    @Pattern(regexp = "[0-9]{1,32}")
+    @Pattern(regexp = "[A-Za-z0-9._-]{1,32}")
     private String sourceId;
 
     public String getMessage() { return message; }

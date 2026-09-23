@@ -23,3 +23,5 @@ Thumbs.db
 
 # Logs
 *.log
+# Local IFCT dataset files
+backend/src/main/resources/ifct/*.csv

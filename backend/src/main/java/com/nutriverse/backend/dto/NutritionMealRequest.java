@@ -16,7 +16,7 @@ public class NutritionMealRequest {
     @Size(max = 80)
     private String source;
     @NotBlank
-    @Pattern(regexp = "[0-9]{1,24}")
+    @Pattern(regexp = "[A-Za-z0-9._-]{1,32}")
     private String sourceId;
     @NotNull
     @DecimalMin(value = "0", inclusive = false)

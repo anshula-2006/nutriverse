@@ -62,17 +62,25 @@ public class NutritionMealService {
 
         if (food.getServingSize() == null || !Double.isFinite(food.getServingSize())
                 || food.getServingSize() <= 0 || !"g".equals(food.getServingUnit())
-                || food.getSourceId() == null || !food.getSourceId().equals(request.getSourceId())
-                || food.getSource() == null || food.getSourceType() == null) {
+                || food.getSourceId() == null || !food.getSourceId().equalsIgnoreCase(request.getSourceId())
+                || food.getSource() == null
+                || !food.getSource().equalsIgnoreCase(request.getSource())
+                || food.getSourceType() == null) {
             throw new IllegalArgumentException("Selected food has no matching source or gram-based serving");
         }
-        boolean usda = "USDA FoodData Central".equals(food.getSource())
-                && "AUTHORITATIVE_DATABASE".equals(food.getSourceType());
-        boolean off = "Open Food Facts".equals(food.getSource())
-                && "PRODUCT_DATABASE".equals(food.getSourceType());
-        if ((!usda && !off) || food.isVerified() != usda || food.isEstimated()) {
-            throw new IllegalArgumentException("Selected food provenance could not be confirmed");
+        boolean supportedSourceType =
+                "AUTHORITATIVE_DATABASE".equals(food.getSourceType())
+                        || "PRODUCT_DATABASE".equals(food.getSourceType());
+
+        if (!supportedSourceType
+                || !food.isVerified()
+                || food.isEstimated()) {
+
+            throw new IllegalArgumentException(
+                    "Selected food provenance could not be confirmed"
+            );
         }
+
         double baseSize = food.getServingSize();
 
         double factor =

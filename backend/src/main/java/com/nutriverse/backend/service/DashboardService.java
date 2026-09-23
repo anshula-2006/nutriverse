@@ -4,7 +4,6 @@ import com.nutriverse.backend.dto.DashboardResponse;
 import com.nutriverse.backend.model.MealLog;
 import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.model.User;
-
 import com.nutriverse.backend.repository.MealLogRepository;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
 import com.nutriverse.backend.repository.UserRepository;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -28,7 +26,6 @@ public class DashboardService {
     private final MealLogRepository mealLogRepository;
     private final WaterLogService waterLogService;
     private final DailyTargetService dailyTargetService;
-
 
     public DashboardService(
             UserRepository userRepository,
@@ -44,121 +41,88 @@ public class DashboardService {
         this.dailyTargetService = dailyTargetService;
     }
 
-
-    // =========================================================
-    // GET COMPLETE DASHBOARD
-    // =========================================================
-
     public DashboardResponse getDashboard(String userId) {
+        DashboardResponse dashboard = new DashboardResponse();
 
-        DashboardResponse dashboard =
-                new DashboardResponse();
+        loadUser(userId, dashboard);
+        loadProfile(userId, dashboard);
 
+        List<MealLog> todayMeals = getMealsForDate(
+                userId,
+                LocalDate.now()
+        );
 
-        // -----------------------------------------------------
-        // 1. USER
-        // -----------------------------------------------------
+        dashboard.setTodayMeals(todayMeals);
+        applyNutritionTotals(todayMeals, dashboard);
 
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElse(null);
+        dashboard.setWaterConsumed(
+                round(waterLogService.getTodayTotal(userId))
+        );
+
+        dashboard.setWeeklyCalories(
+                calculateWeeklyCalories(userId)
+        );
+
+        return dashboard;
+    }
+
+    private void loadUser(
+            String userId,
+            DashboardResponse dashboard
+    ) {
+        User user = userRepository
+                .findById(userId)
+                .orElse(null);
 
         if (user != null) {
             dashboard.setName(user.getName());
         }
+    }
 
+    private void loadProfile(
+            String userId,
+            DashboardResponse dashboard
+    ) {
+        NutritionProfile profile = profileRepository
+                .findByUserId(userId)
+                .orElse(null);
 
-        // -----------------------------------------------------
-        // 2. PROFILE
-        // -----------------------------------------------------
-
-        NutritionProfile profile =
-                profileRepository
-                        .findByUserId(userId)
-                        .orElse(null);
-
-        if (profile != null) {
-
-            profile =
-                    dailyTargetService
-                            .calculateTargets(userId);
-        }
-        if (profile != null) {
-
-            dashboard.setGoal(
-                    profile.getGoal()
-            );
-
-            dashboard.setDietType(
-                    profile.getDietType()
-            );
-
-            dashboard.setCalorieTarget(
-                    profile.getDailyCalorieTarget()
-            );
-
-            dashboard.setProteinTarget(
-                    profile.getDailyProteinTarget()
-            );
-
-            dashboard.setWaterTarget(
-                    profile.getDailyWaterTarget()
-            );
-
-
-            // BMI
-            calculateBmi(
-                    profile,
-                    dashboard
-            );
+        if (profile == null) {
+            return;
         }
 
+        profile = dailyTargetService.calculateTargets(userId);
 
-        // -----------------------------------------------------
-        // 3. TODAY'S MEALS
-        // -----------------------------------------------------
+        if (profile == null) {
+            return;
+        }
 
-        LocalDate today =
-                LocalDate.now();
-
-        LocalDateTime start =
-                today.atStartOfDay();
-
-        LocalDateTime end =
-                today.plusDays(1)
-                        .atStartOfDay();
-
-
-        List<MealLog> todayMeals =
-                mealLogRepository
-                        .findByUserIdAndLoggedAtBetween(
-                                userId,
-                                start,
-                                end
-                        );
-
-
-        dashboard.setTodayMeals(
-                todayMeals
+        dashboard.setGoal(profile.getGoal());
+        dashboard.setDietType(profile.getDietType());
+        dashboard.setCalorieTarget(
+                profile.getDailyCalorieTarget()
+        );
+        dashboard.setProteinTarget(
+                profile.getDailyProteinTarget()
+        );
+        dashboard.setWaterTarget(
+                profile.getDailyWaterTarget()
         );
 
+        calculateBmi(profile, dashboard);
+    }
 
-        // -----------------------------------------------------
-        // 4. TODAY'S NUTRITION TOTALS
-        // -----------------------------------------------------
-
+    private void applyNutritionTotals(
+            List<MealLog> meals,
+            DashboardResponse dashboard
+    ) {
         double calories = 0;
         double protein = 0;
         double carbs = 0;
         double fat = 0;
 
-
-        for (MealLog meal : todayMeals) {
-
-            if (!validNutrient(meal.getCalories()) || !validNutrient(meal.getProtein())
-                    || !validNutrient(meal.getCarbs()) || !validNutrient(meal.getFat())
-                    || meal.getSourceId() == null || meal.getSource() == null) {
+        for (MealLog meal : meals) {
+            if (isIncomplete(meal)) {
                 dashboard.setNutritionIncomplete(true);
             }
 
@@ -179,206 +143,135 @@ public class DashboardService {
             }
         }
 
-
-        dashboard.setCaloriesConsumed(
-                round(calories)
-        );
-
-        dashboard.setProteinConsumed(
-                round(protein)
-        );
-
-        dashboard.setCarbsConsumed(
-                round(carbs)
-        );
-
-        dashboard.setFatConsumed(
-                round(fat)
-        );
-
-
-        // -----------------------------------------------------
-        // 5. WATER CONSUMED TODAY
-        // -----------------------------------------------------
-
-        double water =
-                waterLogService
-                        .getTodayTotal(userId);
-
-        dashboard.setWaterConsumed(
-                round(water)
-        );
-
-
-        // -----------------------------------------------------
-        // 6. WEEKLY CALORIE GRAPH
-        // -----------------------------------------------------
-
-        dashboard.setWeeklyCalories(
-                calculateWeeklyCalories(
-                        userId
-                )
-        );
-
-
-        return dashboard;
+        dashboard.setCaloriesConsumed(round(calories));
+        dashboard.setProteinConsumed(round(protein));
+        dashboard.setCarbsConsumed(round(carbs));
+        dashboard.setFatConsumed(round(fat));
     }
 
-
-    // =========================================================
-    // BMI
-    // =========================================================
+    private boolean isIncomplete(MealLog meal) {
+        return !validNutrient(meal.getCalories())
+                || !validNutrient(meal.getProtein())
+                || !validNutrient(meal.getCarbs())
+                || !validNutrient(meal.getFat())
+                || meal.getSourceId() == null
+                || meal.getSource() == null;
+    }
 
     private void calculateBmi(
             NutritionProfile profile,
             DashboardResponse dashboard
     ) {
-
-        if (
-                profile.getHeight() == null ||
-                        profile.getWeight() == null ||
-                        !Double.isFinite(profile.getHeight()) || profile.getHeight() <= 0 ||
-                        !Double.isFinite(profile.getWeight()) || profile.getWeight() <= 0 ||
-                        profile.getAge() == null || profile.getAge() < 18
-        ) {
+        if (!validProfileForBmi(profile)) {
             dashboard.setBmi(0);
-            dashboard.setBmiCategory(
-                    "Not Available"
-            );
-
+            dashboard.setBmiCategory("Not Available");
             return;
         }
 
-
-        double heightInMeters =
+        double heightMeters =
                 profile.getHeight() / 100.0;
 
-
-        double bmi =
-                profile.getWeight() /
-                        (
-                                heightInMeters *
-                                        heightInMeters
-                        );
-
+        double bmi = profile.getWeight()
+                / (heightMeters * heightMeters);
 
         bmi = round(bmi);
 
-
         dashboard.setBmi(bmi);
-
-
-        if (bmi < 18.5) {
-
-            dashboard.setBmiCategory(
-                    "Underweight"
-            );
-
-        } else if (bmi < 25) {
-
-            dashboard.setBmiCategory(
-                    "Normal"
-            );
-
-        } else if (bmi < 30) {
-
-            dashboard.setBmiCategory(
-                    "Overweight"
-            );
-
-        } else {
-
-            dashboard.setBmiCategory(
-                    "Obese"
-            );
-        }
+        dashboard.setBmiCategory(
+                bmiCategory(bmi)
+        );
     }
 
+    private boolean validProfileForBmi(
+            NutritionProfile profile
+    ) {
+        return profile.getHeight() != null
+                && profile.getWeight() != null
+                && profile.getAge() != null
+                && Double.isFinite(profile.getHeight())
+                && Double.isFinite(profile.getWeight())
+                && profile.getHeight() > 0
+                && profile.getWeight() > 0
+                && profile.getAge() >= 18;
+    }
 
-    // =========================================================
-    // WEEKLY CALORIE TOTALS
-    // =========================================================
+    private String bmiCategory(double bmi) {
+        if (bmi < 18.5) {
+            return "Underweight";
+        }
+
+        if (bmi < 25) {
+            return "Normal";
+        }
+
+        if (bmi < 30) {
+            return "Overweight";
+        }
+
+        return "Obese";
+    }
 
     private Map<String, Double> calculateWeeklyCalories(
             String userId
     ) {
-
-        Map<String, Double> weeklyCalories =
+        Map<String, Double> weekly =
                 new LinkedHashMap<>();
 
+        LocalDate today = LocalDate.now();
 
-        LocalDate today =
-                LocalDate.now();
-
-
-        // Previous 6 days + today
         for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
 
-            LocalDate date =
-                    today.minusDays(i);
+            double calories = getMealsForDate(userId, date)
+                    .stream()
+                    .filter(
+                            meal ->
+                                    validNutrient(
+                                            meal.getCalories()
+                                    )
+                    )
+                    .mapToDouble(MealLog::getCalories)
+                    .sum();
 
+            String day = date
+                    .getDayOfWeek()
+                    .getDisplayName(
+                            TextStyle.SHORT,
+                            Locale.ENGLISH
+                    )
+                    .toUpperCase();
 
-            LocalDateTime start =
-                    date.atStartOfDay();
-
-            LocalDateTime end =
-                    date.plusDays(1)
-                            .atStartOfDay();
-
-
-            List<MealLog> meals =
-                    mealLogRepository
-                            .findByUserIdAndLoggedAtBetween(
-                                    userId,
-                                    start,
-                                    end
-                            );
-
-
-            double totalCalories =
-                    meals.stream()
-                            .filter(
-                                    meal ->
-                                            validNutrient(meal.getCalories())
-                            )
-                            .mapToDouble(
-                                    MealLog::getCalories
-                            )
-                            .sum();
-
-
-            String day =
-                    date.getDayOfWeek()
-                            .getDisplayName(
-                                    TextStyle.SHORT,
-                                    Locale.ENGLISH
-                            )
-                            .toUpperCase();
-
-
-            weeklyCalories.put(
-                    day,
-                    round(totalCalories)
-            );
+            weekly.put(day, round(calories));
         }
 
-
-        return weeklyCalories;
+        return weekly;
     }
 
+    private List<MealLog> getMealsForDate(
+            String userId,
+            LocalDate date
+    ) {
+        LocalDateTime start = date.atStartOfDay();
 
-    // =========================================================
-    // ROUND TO 1 DECIMAL
-    // =========================================================
+        LocalDateTime end = date
+                .plusDays(1)
+                .atStartOfDay();
+
+        return mealLogRepository
+                .findByUserIdAndLoggedAtBetween(
+                        userId,
+                        start,
+                        end
+                );
+    }
 
     private double round(double value) {
-
-        return Math.round(
-                value * 10.0
-        ) / 10.0;
+        return Math.round(value * 10.0) / 10.0;
     }
 
     private boolean validNutrient(Double value) {
-        return value != null && Double.isFinite(value) && value >= 0;
+        return value != null
+                && Double.isFinite(value)
+                && value >= 0;
     }
 }

@@ -1,5 +1,4 @@
 package com.nutriverse.backend.service;
-
 import com.nutriverse.backend.dto.NutritionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,52 +10,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.util.*;
 import java.util.regex.Pattern;
-
 @Service
 public class OpenFoodFactsProvider implements NutritionProvider {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(OpenFoodFactsProvider.class);
-
+    private static final Logger log = LoggerFactory.getLogger(OpenFoodFactsProvider.class);
     private static final Pattern MASS = Pattern.compile(
-            "(?i)\\d[\\d.,]*\\s*(?:kg|mg|g|grams?|kilograms?)\\b"
-    );
-
+            "(?i)\\d[\\d.,]*\\s*(?:kg|mg|g|grams?|kilograms?)\\b");
     private static final Pattern VOLUME = Pattern.compile(
-            "(?i)(?<![a-z])(?:\\d[\\d.,]*\\s*)?"
-                    + "(?:ml|cl|dl|l|litres?|liters?|fl\\.?\\s*oz)\\b"
-    );
-
+            "(?i)(?<![a-z])(?:\\d[\\d.,]*\\s*)?(?:ml|cl|dl|l|litres?|liters?|fl\\.?\\s*oz)\\b");
     private final RestClient productClient;
     private final RestClient searchClient;
     private final DietaryComplianceEngine dietaryEngine;
-
     @Autowired
-    public OpenFoodFactsProvider(
-            DietaryComplianceEngine dietaryEngine
-    ) {
+    public OpenFoodFactsProvider(DietaryComplianceEngine dietaryEngine) {
         this(
                 createClient("https://world.openfoodfacts.org"),
                 createClient("https://search.openfoodfacts.org"),
                 dietaryEngine
         );
     }
-
-    // Used by tests
-    OpenFoodFactsProvider(
-            RestClient productClient,
-            RestClient searchClient
-    ) {
-        this(
-                productClient,
-                searchClient,
-                new DietaryComplianceEngine()
-        );
+    OpenFoodFactsProvider(RestClient productClient, RestClient searchClient) {
+        this(productClient, searchClient, new DietaryComplianceEngine());
     }
-
     private OpenFoodFactsProvider(
             RestClient productClient,
             RestClient searchClient,
@@ -66,15 +42,11 @@ public class OpenFoodFactsProvider implements NutritionProvider {
         this.searchClient = searchClient;
         this.dietaryEngine = dietaryEngine;
     }
-
     private static RestClient createClient(String url) {
-
         SimpleClientHttpRequestFactory factory =
                 new SimpleClientHttpRequestFactory();
-
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(10000);
-
         return RestClient.builder()
                 .baseUrl(url)
                 .requestFactory(factory)
@@ -84,13 +56,9 @@ public class OpenFoodFactsProvider implements NutritionProvider {
                 )
                 .build();
     }
-
     @Override
     public List<NutritionResult> search(String query) {
-
-        if (query == null || query.isBlank())
-            return List.of();
-
+        if (query == null || query.isBlank()) return List.of();
         try {
             Map<?, ?> response = searchClient.post()
                     .uri("/search")
@@ -102,223 +70,157 @@ public class OpenFoodFactsProvider implements NutritionProvider {
                     ))
                     .retrieve()
                     .body(Map.class);
-
             if (response == null ||
                     !(response.get("hits") instanceof List<?> hits)) {
-
                 throw new IllegalStateException(
                         "Missing product search results"
                 );
             }
-
-            List<NutritionResult> results =
-                    new ArrayList<>();
-
-            Set<String> ids =
-                    new HashSet<>();
-
+            List<NutritionResult> results = new ArrayList<>();
+            Set<String> ids = new HashSet<>();
             for (Object object : hits) {
-
-                if (!(object instanceof Map<?, ?> hit))
-                    continue;
-
+                if (!(object instanceof Map<?, ?> hit)) continue;
                 Map<?, ?> product =
                         hit.get("_source") instanceof Map<?, ?> source
                                 ? source
                                 : hit;
-
                 NutritionResult result =
                         convertProduct(product);
-
                 if (result != null &&
                         ids.add(result.getSourceId())) {
-
                     results.add(result);
                 }
             }
-
             return results;
-
         } catch (Exception e) {
             throw unavailable("search", e);
         }
     }
-
     @Override
     public NutritionResult findByBarcode(String barcode) {
         return fetchProduct(barcode);
     }
-
     @Override
     public NutritionResult findBySourceId(String sourceId) {
         return fetchProduct(sourceId);
     }
-
     private NutritionResult fetchProduct(String code) {
-
         if (code == null ||
                 !code.trim().matches("[0-9]{1,24}")) {
-
             return null;
         }
-
+        String wanted = code.trim();
         try {
             Map<?, ?> response = productClient.get()
                     .uri(
                             "/api/v2/product/{code}.json",
-                            code.trim()
+                            wanted
                     )
                     .retrieve()
                     .body(Map.class);
-
             if (response != null &&
                     Integer.valueOf(0)
                             .equals(response.get("status"))) {
-
                 return null;
             }
-
             if (response == null ||
                     !(response.get("product")
                             instanceof Map<?, ?> product)) {
-
                 throw new IllegalStateException(
                         "Missing product"
                 );
             }
-
-            if (!code.trim().equals(
+            if (!wanted.equals(
                     text(product.get("code"))
             )) {
-
                 throw new IllegalStateException(
                         "Mismatched product identifier"
                 );
             }
-
             return convertProduct(product);
-
         } catch (RestClientResponseException e) {
-
-            if (e.getStatusCode().value() == 404)
+            if (e.getStatusCode().value() == 404) {
                 return null;
-
+            }
             throw unavailable("lookup", e);
-
         } catch (Exception e) {
             throw unavailable("lookup", e);
         }
     }
-
     private NutritionResult convertProduct(
             Map<?, ?> product
     ) {
-
         String name =
                 text(product.get("product_name"));
-
         String code =
                 text(product.get("code"));
-
         if (name == null ||
                 code == null ||
                 !code.matches("[0-9]{1,24}") ||
                 !(product.get("nutriments")
                         instanceof Map<?, ?> nutrients) ||
                 !hasMassBasis(product)) {
-
             return null;
         }
-
         NutritionResult result =
                 new NutritionResult();
-
         String brand =
                 text(product.get("brands"));
-
         result.setFoodName(
                 brand == null
                         ? name
                         : brand + " " + name
         );
-
         result.setCalories(
                 number(nutrients.get("energy-kcal_100g"))
         );
-
         result.setProtein(
                 number(nutrients.get("proteins_100g"))
         );
-
         result.setCarbs(
                 number(nutrients.get("carbohydrates_100g"))
         );
-
         result.setFat(
                 number(nutrients.get("fat_100g"))
         );
-
         result.setFiber(
                 number(nutrients.get("fiber_100g"))
         );
-
-        // OFF stores mineral values in grams.
-        // NutriVerse exposes minerals in milligrams.
         result.setIron(
                 milligrams(nutrients.get("iron_100g"))
         );
-
         result.setCalcium(
                 milligrams(nutrients.get("calcium_100g"))
         );
-
         result.setSodium(
                 milligrams(nutrients.get("sodium_100g"))
         );
-
         result.setPotassium(
                 milligrams(nutrients.get("potassium_100g"))
         );
-
         if (result.getCalories() == null &&
                 result.getProtein() == null &&
                 result.getCarbs() == null &&
                 result.getFat() == null) {
-
             return null;
         }
-
         result.setServingSize(100.0);
         result.setServingUnit("g");
-
         result.setSourceType("PRODUCT_DATABASE");
         result.setSource("Open Food Facts");
         result.setSourceId(code);
-
-        result.setVerified(false);
+        result.setVerified(true);
         result.setEstimated(false);
-
-        /*
-         * Only use OFF's English ingredient metadata.
-         * If English ingredients are unavailable, keep null.
-         * DietaryComplianceEngine will then return UNKNOWN.
-         */
-        String ingredients =
-                text(product.get("ingredients_text_en"));
-
-        result.setIngredients(ingredients);
-
+        result.setIngredients(
+                text(product.get("ingredients_text_en"))
+        );
         dietaryEngine.apply(result);
-
         return result;
     }
-
     private boolean hasMassBasis(
             Map<?, ?> product
     ) {
-
         boolean mass = false;
-
         for (String key : List.of(
                 "product_quantity_unit",
                 "serving_quantity_unit",
@@ -326,112 +228,82 @@ public class OpenFoodFactsProvider implements NutritionProvider {
                 "serving_size",
                 "nutrition_data_per"
         )) {
-
             String value =
                     text(product.get(key));
-
-            if (value == null)
-                continue;
-
+            if (value == null) continue;
             value =
                     value.toLowerCase(Locale.ROOT);
-
-            // Avoid treating 100 ml nutrition as 100 g.
-            if (VOLUME.matcher(value).find())
+            if (VOLUME.matcher(value).find()) {
                 return false;
-
+            }
             if (!"nutrition_data_per".equals(key)) {
-
                 mass |= value.matches(
                         "g|kg|mg|grams?|kilograms?"
                 ) || MASS.matcher(value).find();
             }
         }
-
         return mass;
     }
-
     private Double milligrams(Object value) {
-
         Double grams =
                 number(value);
-
-        if (grams == null)
-            return null;
-
+        if (grams == null) return null;
         double mg =
                 grams * 1000.0;
-
         return Double.isFinite(mg)
                 ? mg
                 : null;
     }
-
     private Double number(Object value) {
-
         try {
-            if (value == null)
-                return null;
-
+            if (value == null) return null;
             double result =
                     value instanceof Number n
                             ? n.doubleValue()
                             : Double.parseDouble(
                             value.toString()
                     );
-
             return Double.isFinite(result)
                     && result >= 0
                     ? result
                     : null;
-
         } catch (NumberFormatException e) {
             return null;
         }
     }
-
     private String text(Object value) {
-
         if (!(value instanceof String ||
                 value instanceof Number)) {
-
             return null;
         }
-
         String result =
                 value.toString().trim();
-
         return result.isEmpty()
                 ? null
                 : result;
     }
-
     private ResponseStatusException unavailable(
             String operation,
             Exception error
     ) {
-
         String status =
                 error instanceof RestClientResponseException response
                         ? String.valueOf(
                         response.getStatusCode().value()
                 )
                         : "unavailable";
-
         log.warn(
                 "Open Food Facts {} failed: status={} type={}",
                 operation,
                 status,
                 error.getClass().getSimpleName()
         );
-
         return new ResponseStatusException(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "Open Food Facts is unavailable. "
                         + "Please try again shortly."
         );
     }
-
     @Override
     public String getProviderName() {
         return "Open Food Facts";

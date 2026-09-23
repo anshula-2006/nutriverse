@@ -62,8 +62,11 @@ public class RecipeService {
             }
 
             total += value * grams / food.getServingSize();
-            evidence.add(ingredient + " → USDA FDC " + food.getSourceId());
-        }
+            evidence.add(
+                    ingredient + " → "
+                            + food.getSource()
+                            + " [" + food.getSourceId() + "]"
+            );        }
 
         if (evidence.isEmpty())
             return "I found " + recipe.title()
@@ -87,9 +90,8 @@ public class RecipeService {
             out.append("\nNot counted: ").append(String.join("; ", missing));
 
         out.append("\n\nEvidence: ").append(String.join("; ", evidence))
-                .append("\nSource: USDA FoodData Central ingredient records.")
-                .append("\nThis is an ingredient-based estimate, not a USDA recipe record.");
-
+                .append("\nSources: verified ingredient-level nutrition records.")
+                .append("\nThis is an ingredient-based estimate, not a direct prepared-food record.");
         return out.toString();
     }
 
@@ -196,34 +198,25 @@ public class RecipeService {
     }
 
     private String query(String ingredient) {
-        String v = normalize(ingredient);
-
-        if (v.contains("curd") || v.contains("yogurt")) return "yogurt plain";
-        if (v.contains("chicken breast")) return "chicken breast raw";
-        if (v.contains("salmon")) return "salmon raw";
-        if (v.contains("moong") || v.contains("mung")) return "mung beans mature seeds cooked";
-        if (v.contains("toor") || v.contains("pigeon pea")) return "pigeon peas mature seeds cooked";
-        if (v.contains("lentil")) return "lentils mature seeds cooked";
-        if (v.contains("chickpea")) return "chickpeas mature seeds cooked";
-        if (v.contains("rice")) return v.contains("raw") || v.contains("dry")
-                ? "rice white long grain raw" : "rice white long grain cooked";
-        if (v.contains("tomato")) return "tomatoes red ripe raw";
-        if (v.contains("onion")) return "onions raw";
-        if (v.contains("spinach")) return "spinach raw";
-        if (v.contains("olive oil")) return "oil olive";
-        if (v.matches(".*\\boil\\b.*")) return "vegetable oil";
-
         return ingredient;
     }
-
     private boolean verified(NutritionResult f) {
-        return f != null
-                && "USDA FoodData Central".equals(f.getSource())
-                && "AUTHORITATIVE_DATABASE".equals(f.getSourceType())
+        if (f == null || f.getSource() == null) return false;
+
+        boolean authoritative =
+                ("USDA FoodData Central".equals(f.getSource())
+                        || "ICMR-NIN IFCT 2017".equals(f.getSource()))
+                        && "AUTHORITATIVE_DATABASE".equals(f.getSourceType());
+
+        boolean product =
+                "Open Food Facts".equals(f.getSource())
+                        && "PRODUCT_DATABASE".equals(f.getSourceType());
+
+        return (authoritative || product)
                 && f.isVerified()
                 && !f.isEstimated()
                 && f.getSourceId() != null
-                && f.getSourceId().matches("\\d+")
+                && f.getSourceId().matches("[A-Za-z0-9._-]{1,32}")
                 && f.getServingSize() != null
                 && f.getServingSize() > 0
                 && "g".equals(f.getServingUnit());

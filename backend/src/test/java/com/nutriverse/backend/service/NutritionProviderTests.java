@@ -205,7 +205,7 @@ class NutritionProviderTests {
         NutritionResult food = foods.getFirst();
         assertEquals("Open Food Facts", food.getSource());
         assertEquals("PRODUCT_DATABASE", food.getSourceType());
-        assertFalse(food.isVerified());
+        assertTrue(food.isVerified());
         assertFalse(food.isEstimated());
         assertEquals(1.0, food.getSodium());
         assertEquals(4.2, food.getIron(), 0.00001);
