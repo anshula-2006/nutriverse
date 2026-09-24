@@ -1,0 +1,168 @@
+body .dash-page,
+body .chat-page,
+body .profile-page {
+  flex-direction: column;
+}
+.app-nav {
+  position: sticky !important;
+  top: 0;
+  z-index: 900;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 72px;
+  flex: 0 0 auto !important;
+  display: grid !important;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 12px clamp(18px, 3vw, 44px) !important;
+  border: 0 !important;
+  border-bottom: 1px solid #d2cdc2 !important;
+  background: rgba(247, 243, 235, .96) !important;
+  box-shadow: 0 4px 18px rgba(53, 63, 55, .04);
+  overflow: visible !important;
+  backdrop-filter: blur(10px);
+}
+.app-nav > div:first-child {
+  display: initial !important;
+}
+.app-brand {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  min-width: max-content;
+  color: #21372a !important;
+  font: 650 22px Georgia, serif !important;
+  text-decoration: none;
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #314b39;
+  color: #f5f0e7;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+.app-brand > span:last-child {
+  display: grid;
+  line-height: 1;
+}
+.app-brand small {
+  margin-top: 4px;
+  color: #768079;
+  font: 700 8px "Segoe UI", Arial, sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.app-links {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+.app-links a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 13px !important;
+  border: 0 !important;
+  border-radius: 10px;
+  color: #667068 !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  text-decoration: none;
+}
+.app-links a:hover {
+  background: #ebe6dc;
+  color: #2c4434 !important;
+}
+.app-links a.active {
+  border: 0 !important;
+  background: #dfe5dc !important;
+  color: #294332 !important;
+}
+.app-account {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.app-user {
+  margin: 0 !important;
+  text-align: right;
+}
+.app-user small {
+  display: block;
+  margin-bottom: 2px;
+  color: #858b85;
+  font-size: 8px !important;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.app-user strong {
+  max-width: 110px;
+  display: block;
+  overflow: hidden;
+  color: #32463a;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-reference-links {
+  display: flex !important;
+  gap: 9px;
+  margin: 0 !important;
+}
+.app-reference-links a {
+  padding: 0 !important;
+  color: #788079;
+  font-size: 10px !important;
+  text-decoration: none;
+}
+.app-account button {
+  width: auto !important;
+  min-height: 36px !important;
+  padding: 7px 11px !important;
+  border: 1px solid #cbc6bb !important;
+  border-radius: 10px !important;
+  background: #eee9df !important;
+  color: #314b39 !important;
+  font-size: 10px !important;
+}
+@media (max-width: 980px) {
+  .app-nav {
+    grid-template-columns: auto 1fr !important;
+    gap: 10px 18px !important;
+  }
+  .app-links {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-top: 8px;
+    border-top: 1px solid #ddd8ce !important;
+  }
+  .app-account {
+    justify-self: end;
+  }
+  .app-reference-links { display: none !important; }
+}
+@media (max-width: 600px) {
+  .app-nav {
+    padding: 11px 14px !important;
+  }
+  .app-brand { font-size: 19px !important; }
+  .brand-mark { width: 31px; height: 31px; }
+  .app-user { display: none; }
+  .app-links a {
+    min-width: max-content;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+  }
+}
