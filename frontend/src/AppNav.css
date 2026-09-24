@@ -1,168 +1,188 @@
-body .dash-page,
-body .chat-page,
-body .profile-page {
-  flex-direction: column;
-}
 .app-nav {
-  position: sticky !important;
+  position: sticky;
   top: 0;
-  z-index: 900;
-  width: 100% !important;
-  height: auto !important;
+  z-index: 50;
+  width: 100%;
   min-height: 72px;
-  flex: 0 0 auto !important;
-  display: grid !important;
-  grid-template-columns: auto 1fr auto;
+  display: grid;
+  grid-template-columns: auto minmax(420px, 1fr) auto;
   align-items: center;
-  gap: 28px;
-  padding: 12px clamp(18px, 3vw, 44px) !important;
-  border: 0 !important;
-  border-bottom: 1px solid #d2cdc2 !important;
-  background: rgba(247, 243, 235, .96) !important;
-  box-shadow: 0 4px 18px rgba(53, 63, 55, .04);
-  overflow: visible !important;
-  backdrop-filter: blur(10px);
+  gap: 30px;
+  padding: 10px clamp(20px, 3vw, 48px);
+  border-bottom: 1px solid #b9b1a4;
+  background: #f5f0e6;
 }
-.app-nav > div:first-child {
-  display: initial !important;
-}
+
 .app-brand {
-  display: flex !important;
-  align-items: center;
-  gap: 9px;
-  min-width: max-content;
-  color: #21372a !important;
-  font: 650 22px Georgia, serif !important;
+  min-width: 190px;
+  display: grid;
+  color: #2e4434;
+  line-height: 1.05;
   text-decoration: none;
 }
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #314b39;
-  color: #f5f0e7;
-  font-family: Arial, sans-serif;
-  font-size: 15px;
+
+.app-brand strong {
+  font: 700 24px Georgia, "Times New Roman", serif;
 }
-.app-brand > span:last-child {
-  display: grid;
-  line-height: 1;
-}
+
 .app-brand small {
   margin-top: 4px;
-  color: #768079;
-  font: 700 8px "Segoe UI", Arial, sans-serif;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  color: #6f756e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
 }
+
 .app-links {
-  display: flex !important;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px !important;
-  margin: 0 !important;
-  border: 0 !important;
+  gap: 24px;
+  min-width: 0;
 }
+
 .app-links a {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 13px !important;
-  border: 0 !important;
-  border-radius: 10px;
-  color: #667068 !important;
-  font-size: 12px !important;
-  font-weight: 700;
+  min-width: max-content;
+  padding: 10px 0 8px;
+  border-bottom: 2px solid transparent;
+  color: #5f675f;
+  font-size: 13px;
+  font-weight: 800;
   text-decoration: none;
 }
-.app-links a:hover {
-  background: #ebe6dc;
-  color: #2c4434 !important;
-}
+
+.app-links a:hover,
 .app-links a.active {
-  border: 0 !important;
-  background: #dfe5dc !important;
-  color: #294332 !important;
+  border-bottom-color: #2e4434;
+  color: #2e4434;
 }
+
 .app-account {
-  display: flex !important;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 !important;
-  border: 0 !important;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: max-content;
 }
+
+.app-source-link {
+  color: #5f675f;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .app-user {
-  margin: 0 !important;
-  text-align: right;
+  min-width: 120px;
+  padding-left: 16px;
+  border-left: 1px solid #b9b1a4;
 }
+
 .app-user small {
   display: block;
-  margin-bottom: 2px;
-  color: #858b85;
-  font-size: 8px !important;
+  margin-bottom: 3px;
+  color: #6f756e;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
+
 .app-user strong {
-  max-width: 110px;
+  max-width: 145px;
   display: block;
   overflow: hidden;
-  color: #32463a;
-  font-size: 11px;
+  color: #253028;
+  font-size: 13px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.app-reference-links {
-  display: flex !important;
-  gap: 9px;
-  margin: 0 !important;
-}
-.app-reference-links a {
-  padding: 0 !important;
-  color: #788079;
-  font-size: 10px !important;
-  text-decoration: none;
-}
+
 .app-account button {
-  width: auto !important;
-  min-height: 36px !important;
-  padding: 7px 11px !important;
-  border: 1px solid #cbc6bb !important;
-  border-radius: 10px !important;
-  background: #eee9df !important;
-  color: #314b39 !important;
-  font-size: 10px !important;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid #2e4434;
+  border-radius: 2px;
+  background: transparent;
+  color: #2e4434;
+  font-size: 12px;
+  font-weight: 800;
 }
-@media (max-width: 980px) {
+
+.app-account button:hover {
+  background: #2e4434;
+  color: #f5f0e6;
+}
+
+@media (max-width: 1080px) {
   .app-nav {
-    grid-template-columns: auto 1fr !important;
-    gap: 10px 18px !important;
+    grid-template-columns: auto 1fr;
+    gap: 10px 20px;
   }
+
+  .app-account {
+    justify-self: end;
+  }
+
   .app-links {
     grid-column: 1 / -1;
     grid-row: 2;
     justify-content: flex-start;
+    gap: 20px;
     overflow-x: auto;
-    padding-top: 8px;
-    border-top: 1px solid #ddd8ce !important;
+    padding-top: 7px;
+    border-top: 1px solid #d0c9bd;
   }
-  .app-account {
-    justify-self: end;
+
+  .app-source-link {
+    display: none;
   }
-  .app-reference-links { display: none !important; }
 }
-@media (max-width: 600px) {
+
+@media (max-width: 620px) {
   .app-nav {
-    padding: 11px 14px !important;
+    padding: 10px 14px;
   }
-  .app-brand { font-size: 19px !important; }
-  .brand-mark { width: 31px; height: 31px; }
-  .app-user { display: none; }
+
+  .app-brand {
+    min-width: 0;
+  }
+
+  .app-brand strong {
+    font-size: 21px;
+  }
+
+  .app-brand small {
+    display: none;
+  }
+
+  .app-user {
+    min-width: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .app-user small {
+    display: none;
+  }
+
+  .app-user strong {
+    max-width: 82px;
+    font-size: 12px;
+  }
+
+  .app-account {
+    gap: 9px;
+  }
+
+  .app-account button {
+    min-height: 34px;
+    padding: 6px 9px;
+  }
+
   .app-links a {
-    min-width: max-content;
-    padding: 8px 10px !important;
-    font-size: 11px !important;
+    font-size: 12px;
   }
 }

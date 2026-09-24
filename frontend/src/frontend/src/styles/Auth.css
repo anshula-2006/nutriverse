@@ -5,7 +5,6 @@
   padding: 28px 18px;
   background: #ebe5da;
   color: #253028;
-  font-size: 15px;
 }
 .auth-shell {
   width: min(1080px, 100%);
@@ -47,7 +46,7 @@
 .auth-photo-copy p,
 .auth-label {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -60,7 +59,7 @@
 .auth-photo-copy span {
   max-width: 470px;
   display: block;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.65;
 }
 .auth-form-side {
@@ -84,7 +83,7 @@
 .auth-subtitle {
   margin: 9px 0 22px;
   color: #5f675f;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .auth-form form {
@@ -93,7 +92,7 @@
 .auth-form label {
   margin: 13px 0 5px;
   color: #253028;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 800;
 }
 .auth-form input {
@@ -112,7 +111,7 @@
 .auth-error {
   margin: 11px 0 0;
   color: #7a3f35;
-  font-size: 15px;
+  font-size: 11px;
 }
 .auth-submit {
   min-height: 43px;
@@ -126,7 +125,7 @@
 .auth-switch {
   margin: 18px 0 0;
   color: #5f675f;
-  font-size: 15px;
+  font-size: 11px;
 }
 .auth-switch a,
 .auth-legal a {

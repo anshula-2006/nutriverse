@@ -4,34 +4,34 @@
   color: #253028;
 }
 .scan-main {
-  width: min(1180px, calc(100% - 40px));
+  width: min(1180px, calc(100% - 36px));
   margin: 0 auto;
-  padding: 32px 0 52px;
+  padding: 34px 0 52px;
 }
 .scan-header {
-  max-width: 860px;
+  max-width: 820px;
   padding-bottom: 22px;
   border-bottom: 1px solid #b9b1a4;
 }
 .scan-header > p,
 .scan-preview > div > p {
-  margin: 0 0 7px;
-  color: #676e67;
-  font-size: 12px;
+  margin: 0 0 6px;
+  color: #787d76;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: .07em;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 .scan-header h1 {
-  margin: 0 0 9px;
+  margin: 0 0 7px;
   color: #2e4434;
-  font: 700 clamp(40px, 5vw, 56px) Georgia, "Times New Roman", serif;
+  font: 700 clamp(38px, 5vw, 54px) Georgia, "Times New Roman", serif;
 }
 .scan-header span,
 .scan-preview span {
-  color: #515a53;
-  font-size: 15px;
-  line-height: 1.7;
+  color: #5f675f;
+  font-size: 13px;
+  line-height: 1.65;
 }
 .scan-preview {
   display: grid;
@@ -49,25 +49,23 @@
 }
 .scan-preview > div {
   align-self: center;
-  padding: 34px;
+  padding: 32px;
 }
 .scan-preview h2,
 .scan-plan h2,
 .scan-limitations h2 {
-  margin: 0 0 11px;
+  margin: 0 0 10px;
   color: #2e4434;
-  font: 700 28px Georgia, "Times New Roman", serif;
+  font: 700 26px Georgia, "Times New Roman", serif;
 }
 .scan-preview button {
-  min-height: 40px;
-  margin-top: 20px;
-  padding: 9px 13px;
+  min-height: 37px;
+  margin-top: 18px;
+  padding: 8px 12px;
   border: 1px solid #b9b1a4;
   border-radius: 2px;
   background: #ebe5da;
-  color: #656c66;
-  font-size: 13px;
-  font-weight: 800;
+  color: #787d76;
 }
 .scan-plan {
   padding: 42px 0;
@@ -81,39 +79,39 @@
 }
 .scan-plan header p {
   margin: 0;
-  color: #515a53;
-  font-size: 14px;
-  line-height: 1.7;
+  color: #5f675f;
+  font-size: 12px;
+  line-height: 1.65;
 }
 .scan-table {
   border-top: 1px solid #b9b1a4;
 }
 .scan-table article {
   display: grid;
-  grid-template-columns: 52px 190px 105px 1fr;
+  grid-template-columns: 50px 180px 90px 1fr;
   gap: 18px;
-  padding: 16px 0;
+  padding: 15px 0;
   border-bottom: 1px solid #b9b1a4;
 }
 .scan-table article > span {
-  color: #676e67;
-  font: 700 18px Georgia, "Times New Roman", serif;
+  color: #787d76;
+  font: 700 17px Georgia, "Times New Roman", serif;
 }
 .scan-table strong {
   color: #253028;
-  font-size: 14px;
+  font-size: 11px;
 }
 .scan-table small {
   color: #2e4434;
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
 }
 .scan-table p {
   margin: 0;
-  color: #515a53;
-  font-size: 14px;
-  line-height: 1.6;
+  color: #5f675f;
+  font-size: 11px;
+  line-height: 1.55;
 }
 .scan-limitations {
   display: grid;
@@ -127,19 +125,18 @@
   border-top: 1px solid #b9b1a4;
 }
 .scan-limitations dl div {
-  padding: 13px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #b9b1a4;
 }
 .scan-limitations dt {
   color: #253028;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
 }
 .scan-limitations dd {
-  margin: 5px 0 0;
-  color: #515a53;
-  font-size: 14px;
-  line-height: 1.55;
+  margin: 4px 0 0;
+  color: #5f675f;
+  font-size: 11px;
 }
 .scan-actions {
   display: flex;
@@ -147,13 +144,13 @@
   padding-top: 22px;
 }
 .scan-actions button {
-  min-height: 40px;
-  padding: 9px 13px;
+  min-height: 38px;
+  padding: 8px 12px;
   border: 1px solid #2e4434;
   border-radius: 2px;
   background: #2e4434;
   color: #f5f0e6;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
 }
 .scan-actions button + button {

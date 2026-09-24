@@ -1,54 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AppNav from "./AppNav.jsx";
+import chatWelcome from "./assets/images/chat-welcome.jpg";
 import { API_URL, handleUnauthorized, readUser } from "./api.js";
 import "./Chat.css";
 const TEMP_ERROR = "Nutri is having trouble responding right now. Please try again in a moment.";
-const DEFAULT_ETA_MS = {
-  chat: 2200,
-  recipe: 4500,
-  recommendation: 7000
-};
-const ETA_ALPHA = 0.30;
-const ETA_MIN_MS = 1000;
-const ETA_MAX_MS = 30000;
-
-function etaStorageKey(type) {
-  return `nutriverse_eta_${type}`;
-}
-
-function getEstimatedTime(type) {
-  try {
-    const saved = Number(localStorage.getItem(etaStorageKey(type)));
-    if (Number.isFinite(saved) && saved >= ETA_MIN_MS && saved <= ETA_MAX_MS) {
-      return saved;
-    }
-  } catch {
-    // Use the default when browser storage is unavailable.
-  }
-  return DEFAULT_ETA_MS[type] ?? DEFAULT_ETA_MS.chat;
-}
-
-function updateEstimatedTime(type, actualMs) {
-  if (!Number.isFinite(actualMs) || actualMs <= 0) return;
-  const oldEstimate = getEstimatedTime(type);
-  const learned = oldEstimate * (1 - ETA_ALPHA) + actualMs * ETA_ALPHA;
-  const safeEstimate = Math.min(ETA_MAX_MS, Math.max(ETA_MIN_MS, learned));
-  try {
-    localStorage.setItem(etaStorageKey(type), String(Math.round(safeEstimate)));
-  } catch {
-    // The ETA still works for this request even if storage is unavailable.
-  }
-}
-
-function timingTypeFor(message, recommendation) {
-  if (recommendation) return "recommendation";
-  const value = message.toLowerCase();
-  if (hasAny(value, ["recipe", "how do i make", "how to make", "ingredients", "cook"])) {
-    return "recipe";
-  }
-  return "chat";
-}
+const RESPONSE_SECONDS = 10;
 const SUGGESTIONS = [
   ["Plan my meals", "Help me plan my meals for today"],
   ["Suggest recipes", "Suggest 3 recipes for my next meal"],
@@ -69,7 +26,7 @@ function isRecommendationPrompt(text, previousPlainReply = false) {
   if (hasAny(value, ["recipe", "plan my meal", "plan my meals"])) return false;
   if (FOLLOW_UP.test(value) && previousPlainReply) return false;
   const substitution = hasAny(value, SUBSTITUTION_WORDS);
-  if (substitution && previousPlainReply) return false;
+  if (substitution && previousPlainReply && !REQUEST_WORDS.test(value)) return false;
   if (substitution) return true;
   return hasAny(value, ["recommend", "suggest", "give me", "what should i eat", "what can i eat", "i need", "i want"])
     && hasAny(value, ["breakfast", "lunch", "dinner", "snack", "protein", "fiber", "fibre", "vegetarian", "vegan", "food", "meal", "post workout", "post-workout"]);
@@ -113,7 +70,7 @@ export default function Chat() {
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusText, setStatusText] = useState("Preparing response...");
-  const [remainingSeconds, setRemainingSeconds] = useState(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(RESPONSE_SECONDS);
   const endRef = useRef(null);
   const sendingRef = useRef(false);
   const countdownTimer = useRef(null);
@@ -145,44 +102,23 @@ export default function Chat() {
   useEffect(() => () => {
     clearInterval(countdownTimer.current);
   }, []);
-  function startTimer(requestType, startedAt) {
+  function startTimer() {
     clearInterval(countdownTimer.current);
-
-    const estimateMs = getEstimatedTime(requestType);
-    setRemainingSeconds(Math.max(1, Math.ceil(estimateMs / 1000)));
-    setStatusText(
-      requestType === "recommendation"
-        ? "Checking nutrition evidence..."
-        : requestType === "recipe"
-          ? "Preparing recipe..."
-          : "Preparing response..."
-    );
-
+    setRemainingSeconds(RESPONSE_SECONDS);
+    setStatusText("Preparing response...");
     countdownTimer.current = setInterval(() => {
-      const elapsedMs = performance.now() - startedAt;
-      const remainingMs = estimateMs - elapsedMs;
-
-      if (remainingMs > 0) {
-        setRemainingSeconds(Math.max(1, Math.ceil(remainingMs / 1000)));
-
-        if (requestType === "recommendation" && elapsedMs > estimateMs * 0.45) {
-          setStatusText("Ranking verified options...");
-        } else if (requestType === "recipe" && elapsedMs > estimateMs * 0.50) {
-          setStatusText("Finishing recipe...");
-        } else if (requestType === "chat" && elapsedMs > estimateMs * 0.50) {
-          setStatusText("Preparing your answer...");
-        }
-      } else {
-        setRemainingSeconds(null);
-        setStatusText("Taking a little longer than usual...");
-      }
-    }, 250);
+      setRemainingSeconds(current => {
+        const next = Math.max(0, current - 1);
+        if (next === 5) setStatusText("Checking nutrition evidence...");
+        if (next === 0) setStatusText("Still working...");
+        return next;
+      });
+    }, 1000);
   }
-
   function stopTimer() {
     clearInterval(countdownTimer.current);
     countdownTimer.current = null;
-    setRemainingSeconds(null);
+    setRemainingSeconds(RESPONSE_SECONDS);
   }
   async function sendMessage(text = message) {
     const userMessage = text.trim();
@@ -190,17 +126,13 @@ export default function Chat() {
     if (!token) return navigate("/login");
     const lastAssistant = [...messages].reverse().find(item => item.role === "assistant");
     const previousPlainReply = Boolean(lastAssistant && !lastAssistant.recommendation);
-    const recommendation = !foodContext && isRecommendationPrompt(userMessage, previousPlainReply);
-    const requestType = timingTypeFor(userMessage, recommendation);
-    const startedAt = performance.now();
-
     sendingRef.current = true;
     setMessages(current => [...current, { role: "user", content: userMessage }]);
     setMessage("");
     setIsSending(true);
-    startTimer(requestType, startedAt);
-
+    startTimer();
     try {
+      const recommendation = !foodContext && isRecommendationPrompt(userMessage, previousPlainReply);
       const endpoint = recommendation ? "/api/recommendations" : "/api/chat";
       const body = recommendation
         ? { request: userMessage }
@@ -216,7 +148,6 @@ export default function Chat() {
         return;
       }
       const data = await response.json();
-      updateEstimatedTime(requestType, performance.now() - startedAt);
       const structured = data?.recommendation ?? data;
       if (recommendation || data?.recommendation || Array.isArray(data?.recommendations)) {
         const items = recommendationItems(structured);
@@ -297,16 +228,19 @@ export default function Chat() {
           {historyLoading && <p className="chat-loading">Loading conversation...</p>}
           {!historyLoading && !messages.length && (
             <section className="chat-intro">
-              <p>Start a conversation</p>
-              <h2>Ask about a food, a meal, your daily progress or what you ate today.</h2>
-              <div className="chat-suggestions">
-                {SUGGESTIONS.map(([title, prompt]) => (
-                  <button key={title} disabled={isSending} onClick={() => sendMessage(prompt)}>
-                    {title}
-                  </button>
-                ))}
+              <div className="chat-intro-copy">
+                <p>Start a conversation</p>
+                <h2>Ask about a food, a meal, your daily progress or what you ate today.</h2>
+                <div className="chat-suggestions">
+                  {SUGGESTIONS.map(([title, prompt]) => (
+                    <button key={title} disabled={isSending} onClick={() => sendMessage(prompt)}>
+                      {title}
+                    </button>
+                  ))}
+                </div>
+                <small>Signed in as {user?.name || "User"}.</small>
               </div>
-              <small>Signed in as {user?.name || "User"}.</small>
+              <img src={chatWelcome} alt="Balanced meal with vegetables" />
             </section>
           )}
           {messages.map((item, index) => (
@@ -325,12 +259,7 @@ export default function Chat() {
             <article className="chat-message assistant">
               <header>Nutri</header>
               <div className="chat-bubble chat-status">
-                {statusText}
-                {remainingSeconds != null && (
-                  <span className="chat-countdown">
-                    About {remainingSeconds}s remaining
-                  </span>
-                )}
+                {statusText}<span className="chat-countdown">{remainingSeconds}s</span>
               </div>
             </article>
           )}

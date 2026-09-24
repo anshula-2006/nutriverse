@@ -25,7 +25,7 @@
 }
 .home-nav nav a {
   color: #5f675f;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   text-decoration: none;
 }
@@ -60,7 +60,7 @@
 .home-docs > div > p {
   margin: 0;
   color: #787d76;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -76,7 +76,7 @@
   max-width: 650px;
   margin: 0;
   color: #5f675f;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .home-actions {
@@ -89,7 +89,7 @@
   border: 1px solid #2e4434;
   background: #2e4434;
   color: #f5f0e6;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   text-decoration: none;
 }
@@ -108,13 +108,13 @@
 .home-facts dt {
   margin-bottom: 3px;
   color: #2e4434;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
 }
 .home-facts dd {
   margin: 0;
   color: #5f675f;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.55;
 }
 .home-image {
@@ -130,7 +130,7 @@
 .home-image figcaption {
   padding-top: 9px;
   color: #787d76;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.5;
 }
 .home-product,
@@ -172,13 +172,13 @@
 .home-method p {
   margin: 0;
   color: #5f675f;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .home-product-list a {
   align-self: center;
   color: #2e4434;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   text-underline-offset: 4px;
 }
@@ -205,7 +205,7 @@
   padding: 12px 0;
   border-bottom: 1px solid #b9b1a4;
   color: #2e4434;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
 }
 .home-footer {
@@ -215,7 +215,7 @@
   padding: 18px clamp(18px, 4vw, 58px);
   background: #f5f0e6;
   color: #787d76;
-  font-size: 12px;
+  font-size: 10px;
 }
 .home-footer strong {
   color: #2e4434;

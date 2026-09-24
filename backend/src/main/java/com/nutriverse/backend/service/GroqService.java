@@ -444,8 +444,13 @@ public class GroqService {
             String message,
             NutritionResult food
     ) {
+        boolean recipeContext =
+                isRecipeRequest(message)
+                        || isRecipeContextFollowup(history, message);
+
         String reply = callGroq(buildMessages(userId, history, message, food));
-        return isRecipeRequest(message)
+
+        return recipeContext
                 ? recipes.guardGeneratedRecipe(reply)
                 : guardQualitativeReply(reply);
     }
@@ -466,6 +471,61 @@ public class GroqService {
         return QUANTITATIVE.matcher(message).find()
                 ? formatNutrition(food)
                 : aiReply(userId, history, message, food);
+    }
+
+    private boolean isRecipeContextFollowup(
+            List<Map<String, String>> history,
+            String message
+    ) {
+        if (history == null || history.isEmpty() || message == null) return false;
+
+        String t = normalize(message);
+
+        boolean followupLanguage =
+                t.contains("don't have")
+                        || t.contains("dont have")
+                        || t.contains("do not have")
+                        || t.contains("instead")
+                        || t.contains("replace")
+                        || t.contains("replacement")
+                        || t.contains("substitute")
+                        || t.contains("swap")
+                        || t.contains("without")
+                        || t.contains("can i use")
+                        || t.contains("could i use")
+                        || t.contains("what can i use")
+                        || t.contains("skip")
+                        || t.contains("omit")
+                        || t.contains("remove")
+                        || t.contains("how long")
+                        || t.contains("cook it")
+                        || t.contains("cook this");
+
+        if (!followupLanguage) return false;
+
+        int start = Math.max(0, history.size() - 8);
+
+        for (int i = history.size() - 1; i >= start; i--) {
+            Map<String, String> item = history.get(i);
+            if (!"assistant".equals(item.get("role"))) continue;
+
+            String content = item.get("content");
+            if (looksLikeRecipe(content)) return true;
+        }
+
+        return false;
+    }
+
+    private boolean looksLikeRecipe(String content) {
+        if (content == null || content.isBlank()) return false;
+
+        String t = normalize(content);
+
+        return t.contains("ingredients")
+                && (t.contains("steps")
+                || t.contains("cooking time")
+                || t.contains("method")
+                || t.contains("instructions"));
     }
 
     private String resolveFollowup(
@@ -579,6 +639,18 @@ public class GroqService {
 
         int start = Math.max(0, history.size() - 10);
         messages.addAll(history.subList(start, history.size()));
+
+        if (isRecipeContextFollowup(history, message)) {
+            messages.add(msg(
+                    "system",
+                    "The user is continuing the recent recipe. "
+                            + "Answer the requested ingredient substitution, omission, "
+                            + "or cooking adjustment directly. "
+                            + "Do not turn this into a nutrition-facts lookup. "
+                            + "Do not repeat the full recipe unless the user asks."
+            ));
+        }
+
         messages.add(msg("user", message));
         return messages;
     }
