@@ -54,6 +54,11 @@ public class IfctFoodDataProvider implements NutritionProvider {
     public String getProviderName() {
         return SOURCE;
     }
+    public List<NutritionResult> getAllFoods() {
+    return foods.values().stream()
+            .map(this::toResult)
+            .toList();
+}
 
     boolean matchesIndexedAlias(String sourceId, String query) {
         if (sourceId == null || query == null || query.isBlank()) return false;

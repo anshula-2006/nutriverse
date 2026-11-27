@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -33,6 +34,66 @@ public class NutritionLookupService {
     private final OpenFoodFactsProvider off;
     private final Map<String, CacheEntry<List<NutritionResult>>> searchCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry<NutritionResult>> detailCache = new ConcurrentHashMap<>();
+
+    @Autowired(required = false)
+    private Neo4jClient neo4jClient;
+
+    public Map<String, Double> getGraphNutrients(String sourceId) {
+        Map<String, Double> nutrients = new HashMap<>();
+        if (neo4jClient == null || sourceId == null || sourceId.isBlank()) {
+            return nutrients;
+        }
+        neo4jClient.query("""
+                MATCH (f:Food {sourceId: $sourceId, source: $source})
+                      -[r:CONTAINS]->(n:Nutrient)
+                MATCH (f)-[:SOURCED_FROM]->(s:Source {name: $source})
+                WHERE r.perGrams = 100.0 AND f.verified = true
+                RETURN n.name AS nutrient, r.amount AS amount, r.unit AS unit
+                """)
+                .bind(sourceId).to("sourceId")
+                .bind(IFCT).to("source")
+                .fetch().all().forEach(row -> {
+                    String name = Objects.toString(row.get("nutrient"), "");
+                    String expectedUnit = switch (name) {
+                        case "Energy" -> "kcal";
+                        case "Protein", "Carbohydrates", "Fat", "Fiber" -> "g";
+                        case "Iron", "Calcium", "Sodium", "Potassium" -> "mg";
+                        default -> "";
+                    };
+                    if (!expectedUnit.isEmpty() && expectedUnit.equals(row.get("unit"))
+                            && row.get("amount") instanceof Number amount
+                            && Double.isFinite(amount.doubleValue())
+                            && amount.doubleValue() >= 0) {
+                        nutrients.put(name, amount.doubleValue());
+                    }
+                });
+        return nutrients;
+    }
+
+    private NutritionResult enrichFromGraph(NutritionResult result) {
+        if (result == null || !IFCT.equals(result.getSource()) || neo4jClient == null
+                || !Double.valueOf(100.0).equals(result.getServingSize())
+                || !"g".equals(result.getServingUnit())) return result;
+        try {
+            Map<String, Double> nutrients = getGraphNutrients(result.getSourceId());
+            if (nutrients.isEmpty()) return result;
+            if (nutrients.containsKey("Energy")) result.setCalories(nutrients.get("Energy"));
+            if (nutrients.containsKey("Protein")) result.setProtein(nutrients.get("Protein"));
+            if (nutrients.containsKey("Carbohydrates")) result.setCarbs(nutrients.get("Carbohydrates"));
+            if (nutrients.containsKey("Fat")) result.setFat(nutrients.get("Fat"));
+            if (nutrients.containsKey("Fiber")) result.setFiber(nutrients.get("Fiber"));
+            if (nutrients.containsKey("Iron")) result.setIron(nutrients.get("Iron"));
+            if (nutrients.containsKey("Calcium")) result.setCalcium(nutrients.get("Calcium"));
+            if (nutrients.containsKey("Sodium")) result.setSodium(nutrients.get("Sodium"));
+            if (nutrients.containsKey("Potassium")) result.setPotassium(nutrients.get("Potassium"));
+            log.info("KG evidence retrieved: {} | {} | {} nutrients",
+                    result.getFoodName(), result.getSourceId(), nutrients.size());
+        } catch (RuntimeException e) {
+            log.warn("KG unavailable for {}. Using IFCT fallback: {}",
+                    result.getSourceId(), e.getClass().getSimpleName());
+        }
+        return result;
+    }
 
     @Autowired
     public NutritionLookupService(IfctFoodDataProvider ifct, UsdaFoodDataProvider usda, OpenFoodFactsProvider off) {
@@ -108,6 +169,7 @@ public class NutritionLookupService {
                     "Nutrition provider returned an unexpected source.");
         }
 
+        result = enrichFromGraph(result);
         putCache(detailCache, cacheKey, result);
         return result;
     }
