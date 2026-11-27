@@ -1,7 +1,7 @@
 .chat-page {
   min-height: 100vh;
-  background: #ebe5da;
-  color: #253028;
+  background: #edf3f5;
+  color: #172b3a;
 }
 .chat-main {
   width: min(1180px, calc(100% - 40px));
@@ -14,7 +14,7 @@
   justify-content: space-between;
   gap: 24px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .chat-header p {
   margin: 0 0 5px;
@@ -26,7 +26,7 @@
 }
 .chat-header h1 {
   margin: 0;
-  color: #2e4434;
+  color: #235f63;
   font: 700 31px/1.1 Georgia, "Times New Roman", serif;
 }
 .chat-header button,
@@ -34,10 +34,10 @@
 .chat-suggestions button {
   min-height: 38px;
   padding: 8px 12px;
-  border: 1px solid #b9b1a4;
+  border: 1px solid #C1BFA8;
   border-radius: 2px;
-  background: #f5f0e6;
-  color: #2e4434;
+  background: #e1ebee;
+  color: #235f63;
   font-size: 13px;
   font-weight: 800;
 }
@@ -52,11 +52,11 @@
   align-items: center;
   gap: 8px;
   padding: 11px 0;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .chat-food-context strong {
   display: block;
-  color: #253028;
+  color: #172b3a;
   font-size: 14px;
 }
 .chat-food-context span {
@@ -81,8 +81,8 @@
   display: grid;
   grid-template-columns: 1.08fr .92fr;
   margin: 18px auto 0;
-  border: 1px solid #b9b1a4;
-  background: #f5f0e6;
+  border: 1px solid #C1BFA8;
+  background: #e1ebee;
 }
 .chat-intro-copy {
   align-self: center;
@@ -98,7 +98,7 @@
 }
 .chat-intro h2 {
   margin: 0;
-  color: #2e4434;
+  color: #235f63;
   font: 700 clamp(30px, 3vw, 40px)/1.12 Georgia, "Times New Roman", serif;
 }
 .chat-intro img {
@@ -107,7 +107,7 @@
   min-height: 300px;
   display: block;
   object-fit: cover;
-  border-left: 1px solid #b9b1a4;
+  border-left: 1px solid #C1BFA8;
 }
 .chat-intro small {
   display: block;
@@ -141,29 +141,29 @@
 }
 .chat-bubble {
   padding: 14px 16px;
-  border: 1px solid #b9b1a4;
+  border: 1px solid #C1BFA8;
   border-radius: 2px;
-  background: #f5f0e6;
-  color: #253028;
+  background: #e1ebee;
+  color: #172b3a;
   font-size: 14px;
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
 .chat-message.user .chat-bubble {
-  border-color: #2e4434;
-  background: #2e4434;
-  color: #f5f0e6;
+  border-color: #235f63;
+  background: #235f63;
+  color: #e1ebee;
 }
 .chat-status {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  color: #5f675f;
+  color: #4D5755;
 }
 .chat-countdown {
   min-width: 38px;
-  color: #2e4434;
+  color: #235f63;
   font-size: 13px;
   font-weight: 800;
   text-align: right;
@@ -173,18 +173,18 @@
   grid-template-columns: 1fr 90px;
   gap: 8px;
   padding-top: 10px;
-  border-top: 1px solid #b9b1a4;
-  background: #ebe5da;
+  border-top: 1px solid #C1BFA8;
+  background: #edf3f5;
 }
 .chat-input-wrap textarea {
   min-height: 52px;
   max-height: 110px;
   padding: 11px 12px;
-  border: 1px solid #b9b1a4;
+  border: 1px solid #C1BFA8;
   border-radius: 2px;
   resize: none;
-  background: #f5f0e6;
-  color: #253028;
+  background: #e1ebee;
+  color: #172b3a;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -192,10 +192,10 @@
   color: #737970;
 }
 .chat-input-wrap button {
-  border: 1px solid #2e4434;
+  border: 1px solid #235f63;
   border-radius: 2px;
-  background: #2e4434;
-  color: #f5f0e6;
+  background: #235f63;
+  color: #e1ebee;
   font-size: 13px;
   font-weight: 800;
 }
@@ -204,15 +204,15 @@
   justify-content: space-between;
   gap: 18px;
   padding-bottom: 11px;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .recommendation-heading strong {
-  color: #2e4434;
+  color: #235f63;
   font: 700 20px Georgia, "Times New Roman", serif;
 }
 .recommendation-heading p {
   margin: 5px 0 0;
-  color: #5f675f;
+  color: #4D5755;
   font-size: 13px;
 }
 .recommendation-method,
@@ -227,14 +227,14 @@
 }
 .recommendation-card {
   margin-top: 16px;
-  border-top: 2px solid #2e4434;
+  border-top: 2px solid #235f63;
 }
 .recommendation-title {
   display: grid;
   grid-template-columns: 36px 1fr;
   gap: 10px;
   padding: 13px 0;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .recommendation-number {
   color: #6f756e;
@@ -242,16 +242,16 @@
 }
 .recommendation-title h3 {
   margin: 3px 0 0;
-  color: #2e4434;
+  color: #235f63;
   font: 700 20px Georgia, "Times New Roman", serif;
 }
 .recommendation-section {
   padding: 13px 0;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .recommendation-section p,
 .recommendation-reasons li {
-  color: #5f675f;
+  color: #4D5755;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -263,11 +263,11 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   margin-top: 9px;
-  border: 1px solid #b9b1a4;
+  border: 1px solid #C1BFA8;
 }
 .recommendation-evidence-value {
   padding: 10px;
-  border-right: 1px solid #b9b1a4;
+  border-right: 1px solid #C1BFA8;
 }
 .recommendation-evidence-value:last-child {
   border-right: 0;
@@ -275,7 +275,7 @@
 .recommendation-evidence-value strong {
   display: block;
   margin-top: 4px;
-  color: #2e4434;
+  color: #235f63;
   font-size: 14px;
 }
 .recommendation-source {
@@ -321,7 +321,7 @@
   .chat-intro img {
     min-height: 200px;
     border-left: 0;
-    border-top: 1px solid #b9b1a4;
+    border-top: 1px solid #C1BFA8;
   }
   .chat-messages {
     height: 52vh;
@@ -344,10 +344,10 @@
 
 .kg-toggle {
   padding: 10px 15px;
-  border: 1px solid #2e4434;
+  border: 1px solid #235f63;
   border-radius: 6px;
-  background: #2e4434;
-  color: #f5f0e6;
+  background: #235f63;
+  color: #e1ebee;
   font-weight: 700;
   cursor: pointer;
 }
@@ -359,14 +359,14 @@
 .kg-content {
   margin-top: 12px;
   padding: 16px;
-  border: 1px solid #b9b1a4;
+  border: 1px solid #C1BFA8;
   border-radius: 8px;
   background: #faf8f2;
 }
 
 .kg-content h3 {
   margin: 0;
-  color: #2e4434;
+  color: #235f63;
 }
 
 .kg-verified {
@@ -383,7 +383,7 @@
 }
 
 .kg-svg text {
-  fill: #253028;
+  fill: #172b3a;
   font-size: 11px;
   font-weight: 700;
   text-anchor: middle;
@@ -419,7 +419,7 @@
 
 .kg-nutrient:hover circle,
 .kg-nutrient:focus circle {
-  stroke: #2e4434;
+  stroke: #235f63;
   stroke-width: 3;
 }
 

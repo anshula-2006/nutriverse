@@ -1,7 +1,7 @@
 .profile-page {
   min-height: 100vh;
-  background: #ebe5da;
-  color: #253028;
+  background: #edf3f5;
+  color: #172b3a;
 }
 .profile-main {
   width: min(1100px, calc(100% - 40px));
@@ -14,7 +14,7 @@
   align-items: flex-start;
   gap: 28px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .profile-header small,
 .profile-summary small {
@@ -25,14 +25,14 @@
 }
 .profile-header h1 {
   margin: 8px 0;
-  color: #2e4434;
+  color: #235f63;
   font: 700 42px/1.05 Georgia, "Times New Roman", serif;
 }
 .profile-header p,
 .profile-section-head p {
   max-width: 680px;
   margin: 0;
-  color: #5f675f;
+  color: #4D5755;
   font-size: 14px;
   line-height: 1.65;
 }
@@ -40,10 +40,10 @@
 .profile-actions button {
   min-height: 40px;
   padding: 9px 14px;
-  border: 1px solid #2e4434;
+  border: 1px solid #235f63;
   border-radius: 2px;
-  background: #2e4434;
-  color: #f5f0e6;
+  background: #235f63;
+  color: #e1ebee;
   font-size: 13px;
   font-weight: 800;
 }
@@ -57,20 +57,20 @@
 }
 .profile-message.error {
   border-color: #a76d67;
-  background: #eee2dc;
-  color: #713b36;
+  background: #F8E4DF;
+  color: #A52B22;
 }
 .profile-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
   margin-top: 24px;
-  border-block: 1px solid #b9b1a4;
+  border-block: 1px solid #C1BFA8;
 }
 .profile-summary > div {
   padding: 18px 20px;
 }
 .profile-summary > div:first-child {
-  border-right: 1px solid #b9b1a4;
+  border-right: 1px solid #C1BFA8;
 }
 .profile-summary strong {
   display: block;
@@ -81,8 +81,8 @@
 .profile-section {
   margin-top: 24px;
   padding: 28px;
-  border: 1px solid #b9b1a4;
-  background: #f5f0e6;
+  border: 1px solid #C1BFA8;
+  background: #e1ebee;
 }
 .profile-section-head {
   margin-bottom: 22px;
@@ -115,14 +115,14 @@
   border: 1px solid #b7b7ae;
   border-radius: 2px;
   outline: none;
-  background: #ebe5da;
+  background: #edf3f5;
   color: #202a22;
   font-size: 14px;
 }
 .profile-field input:focus,
 .profile-field select:focus {
-  border-color: #2e4434;
-  background: #f5f0e6;
+  border-color: #235f63;
+  background: #e1ebee;
 }
 .profile-field input:disabled,
 .profile-field select:disabled {
@@ -140,8 +140,8 @@
 .profile-note {
   margin: 22px 0 0;
   padding-top: 17px;
-  border-top: 1px solid #b9b1a4;
-  color: #5f675f;
+  border-top: 1px solid #C1BFA8;
+  color: #4D5755;
   font-size: 12px;
   line-height: 1.65;
 }
@@ -154,17 +154,17 @@
 .profile-actions .secondary {
   background: transparent;
   color: #304638;
-  border-color: #b9b1a4;
+  border-color: #C1BFA8;
 }
 .profile-targets {
-  border-top: 1px solid #b9b1a4;
+  border-top: 1px solid #C1BFA8;
 }
 .profile-target {
   display: flex;
   justify-content: space-between;
   gap: 20px;
   padding: 15px 2px;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
   font-size: 14px;
 }
 .profile-target strong {
@@ -176,7 +176,7 @@
   min-height: 100vh;
   margin: 0 auto;
   padding: 60px 0;
-  background: #ebe5da;
+  background: #edf3f5;
 }
 .profile-loading div {
   height: 45px;
@@ -200,7 +200,7 @@
   }
   .profile-summary > div:first-child {
     border-right: 0;
-    border-bottom: 1px solid #b9b1a4;
+    border-bottom: 1px solid #C1BFA8;
   }
 }
 @media (max-width: 480px) {

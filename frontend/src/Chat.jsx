@@ -50,10 +50,10 @@ function timingTypeFor(message, recommendation) {
   return "chat";
 }
 const SUGGESTIONS = [
-  ["Plan my meals", "Help me plan my meals for today"],
-  ["Suggest recipes", "Suggest 3 recipes for my next meal"],
-  ["Protein breakfast", "Suggest a high-protein breakfast"],
-  ["Fiber meal", "Suggest a high-fiber meal"]
+  ["Nutrition in an apple", "Tell me about apple"],
+  ["High-fiber foods", "Suggest high-fiber vegetarian foods"],
+  ["Protein-rich breakfast", "Suggest a high-protein breakfast"],
+  ["Today's calorie intake", "How many calories have I consumed today?"]
 ];
 const PROFILE_UPDATE = /\b(?:i (?:don't|dont|do not) (?:eat|consume|like)|i (?:can't|cant|cannot) (?:eat|have)|i dislike|i hate|avoid|exclude)\b/i;
 const REQUEST_WORDS = /\b(?:recommend|suggest|give me|what should i eat|what can i eat|another|more|alternative|instead)\b/i;
@@ -298,7 +298,7 @@ export default function Chat() {
           {!historyLoading && !messages.length && (
             <section className="chat-intro">
               <p>Start a conversation</p>
-              <h2>Ask about a food, a meal, your daily progress or what you ate today.</h2>
+              <h2>How can Nutri help you?</h2>
               <div className="chat-suggestions">
                 {SUGGESTIONS.map(([title, prompt]) => (
                   <button key={title} disabled={isSending} onClick={() => sendMessage(prompt)}>

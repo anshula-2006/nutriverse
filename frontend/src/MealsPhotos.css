@@ -1,0 +1,57 @@
+/* Page-specific locally bundled photographic backgrounds */
+#root :is(.home-page,.dash-page,.chat-page,.scan-page,.profile-page,.info-page,.auth-page) {
+  position: relative;
+  isolation: isolate;
+  background: #edf3f5;
+}
+#root .home-page { --page-photo: url('./assets/images/home-hero.jpg'); }
+#root .dash-page { --page-photo: url('./assets/images/dashboard-hero.jpg'); }
+#root .chat-page { --page-photo: url('./assets/images/chat-welcome.jpg'); }
+#root .scan-page { --page-photo: url('./assets/images/auth-food.jpg'); }
+#root .profile-page { --page-photo: url('./assets/images/home-hero.jpg'); }
+#root .info-page { --page-photo: url('./assets/images/chat-welcome.jpg'); }
+#root .auth-page { --page-photo: url('./assets/images/auth-food.jpg'); }
+#root :is(.home-page,.dash-page,.chat-page,.scan-page,.profile-page,.info-page,.auth-page)::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(135deg,rgba(255,250,240,.77),rgba(224,234,211,.68)), var(--page-photo) center / cover no-repeat;
+  filter: blur(7px);
+  transform: scale(1.04);
+}
+#root :is(.dash-panel,.profile-section,.scan-panel,.chat-intro,.auth-form-side,.info-heading) {
+  background: rgba(255,253,247,.94);
+  box-shadow: 0 12px 32px rgba(42,55,56,.12);
+}
+#root :is(.home-copy,.home-product,.home-method,.home-docs,.info-sections,.profile-header,.scan-header,.chat-header) {
+  background: rgba(255,250,240,.92);
+  border-radius: 18px;
+  padding: clamp(16px,2.5vw,28px);
+}
+#root .chat-input-wrap { background: #edf3f5; }
+#root .meal-groups { display:grid; gap:10px; }
+#root .meal-group { border:1px solid #c8d8df; border-radius:14px; padding:0 14px; background:#ffffff; }
+#root .meal-breakfast { background:#efe2d5; }
+#root .meal-lunch { background:#dceceb; }
+#root .meal-snack { background:#e9e3ef; }
+#root .meal-dinner { background:#dfecf2; }
+#root .meal-group summary { cursor:pointer; min-height:64px; display:flex; align-items:center; gap:12px; padding:12px 0; color:#172b3a; list-style:none; }
+#root .meal-group summary::-webkit-details-marker { display:none; }
+#root .meal-group summary::after { content:'+'; font-size:22px; }
+#root .meal-group[open] summary::after { content:'âˆ’'; }
+#root .meal-group summary div { flex:1; min-width:0; }
+#root .meal-group summary strong { display:block; font-size:16px; }
+#root .meal-group summary small { display:block; font-size:13px; color:#43534a; }
+#root .meal-group summary > span { font-size:14px; font-weight:700; text-align:right; }
+#root .meal-group-macros { display:flex; flex-wrap:wrap; gap:8px 16px; padding:10px 0; font-size:13px; border-top:1px solid #0002; }
+#root .meal-group .meal-row { border-color:#0002; }
+#root .meal-group-empty { font-size:14px; }
+@media(max-width:760px) {
+  #root :is(.home-page,.dash-page,.chat-page,.scan-page,.profile-page,.info-page,.auth-page)::before { filter:blur(5px); }
+  #root .meal-group { padding-inline:12px; }
+  #root .meal-group .meal-row { grid-template-columns:8px minmax(0,1fr); }
+  #root .meal-group .meal-values { grid-column:2; text-align:left; }
+  #root .meal-group .meal-main { overflow-wrap:anywhere; }
+}

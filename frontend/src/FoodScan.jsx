@@ -36,8 +36,8 @@ export default function FoodScan() {
   const [review, setReview] = useState([]);
   const scanner = useRef(null),
     cameraActive = useRef(false),
-    locked = useRef(false),
-    decoded = useRef(false);
+    locked = useRef(false);
+
   useEffect(() => {
     if (!token) navigate("/login", { replace: true });
   }, [token, navigate]);
@@ -118,7 +118,7 @@ export default function FoodScan() {
     setResults([]);
     if (!validBarcode(code))
       throw new Error(
-        "Invalid retail barcode. Check all printed digits or scan again.",
+        "Invalid retail barcode. Check all printed digits.",
       );
     try {
       select(await request("/barcode/" + encodeURIComponent(code)));
@@ -195,28 +195,6 @@ export default function FoodScan() {
     if (s?.isScanning) await s.stop();
     cameraActive.current = false;
     if (s) s.clear();
-  }
-  async function startCamera() {
-    await run(async () => {
-      if (cameraActive.current) return;
-      const s = (scanner.current ??= new Html5Qrcode("nv-reader"));
-      decoded.current = false;
-      await s.start(
-        { facingMode: "environment" },
-        { fps: 10 },
-        (code) => {
-          if (decoded.current || locked.current || !validBarcode(code)) return;
-          decoded.current = true;
-          setBarcode(code);
-          void run(async () => {
-            await stopCamera();
-            await lookup(code);
-          });
-        },
-        () => {},
-      );
-      cameraActive.current = true;
-    });
   }
   async function scanBarcodeFile(file) {
     if (!file) return;
@@ -350,7 +328,7 @@ export default function FoodScan() {
         <nav className="scan-tabs" aria-label="Scanner views">
           {[
             ["meal", "Meal photo", "Identify foods from a photograph"],
-            ["barcode", "Barcode", "Scan packaged food"],
+            ["barcode", "Barcode", "Look up packaged food"],
             [
               "cart",
               `Nutrition cart (${cart.length})`,
@@ -494,14 +472,9 @@ export default function FoodScan() {
           </article>
           <article className="scan-panel" hidden={view !== "barcode"}>
             <h2>Packaged food</h2>
-            <p>Scan a barcode or enter its digits.</p>
+            <p>Enter the printed barcode digits or upload a barcode image.</p>
             <div id="nv-reader" />
-            <button disabled={busy} onClick={startCamera}>
-              Start camera
-            </button>{" "}
-            <button disabled={busy} onClick={() => run(stopCamera)}>
-              Stop camera
-            </button>
+            
             <label className="scan-upload">
               Upload barcode image
               <input
@@ -702,10 +675,7 @@ export default function FoodScan() {
             </>
           )}
         </section>
-        <div className="scan-actions">
-          <button onClick={() => navigate("/chat")}>Ask Nutri</button>
-          <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        </div>
+        
       </main>
     </div>
   );

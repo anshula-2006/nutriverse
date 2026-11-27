@@ -9,14 +9,14 @@
   align-items: center;
   gap: 30px;
   padding: 10px clamp(20px, 3vw, 48px);
-  border-bottom: 1px solid #b9b1a4;
-  background: #f5f0e6;
+  border-bottom: 1px solid #C1BFA8;
+  background: #e1ebee;
 }
 
 .app-brand {
   min-width: 190px;
   display: grid;
-  color: #2e4434;
+  color: #235f63;
   line-height: 1.05;
   text-decoration: none;
 }
@@ -45,7 +45,7 @@
   min-width: max-content;
   padding: 10px 0 8px;
   border-bottom: 2px solid transparent;
-  color: #5f675f;
+  color: #4D5755;
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
@@ -53,8 +53,8 @@
 
 .app-links a:hover,
 .app-links a.active {
-  border-bottom-color: #2e4434;
-  color: #2e4434;
+  border-bottom-color: #235f63;
+  color: #235f63;
 }
 
 .app-account {
@@ -66,7 +66,7 @@
 }
 
 .app-source-link {
-  color: #5f675f;
+  color: #4D5755;
   font-size: 12px;
   font-weight: 700;
   text-decoration: underline;
@@ -76,7 +76,7 @@
 .app-user {
   min-width: 120px;
   padding-left: 16px;
-  border-left: 1px solid #b9b1a4;
+  border-left: 1px solid #C1BFA8;
 }
 
 .app-user small {
@@ -93,7 +93,7 @@
   max-width: 145px;
   display: block;
   overflow: hidden;
-  color: #253028;
+  color: #172b3a;
   font-size: 13px;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -103,17 +103,17 @@
 .app-account button {
   min-height: 38px;
   padding: 8px 13px;
-  border: 1px solid #2e4434;
+  border: 1px solid #235f63;
   border-radius: 2px;
   background: transparent;
-  color: #2e4434;
+  color: #235f63;
   font-size: 12px;
   font-weight: 800;
 }
 
 .app-account button:hover {
-  background: #2e4434;
-  color: #f5f0e6;
+  background: #235f63;
+  color: #e1ebee;
 }
 
 @media (max-width: 1080px) {

@@ -4,6 +4,9 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App.jsx";
 import "./index.css";
+import "./FinalTheme.css";
+import "./MidnightWellness.css";
+import "./MealsPhotos.css";
 
 createRoot(
   document.getElementById("root")

@@ -1,7 +1,7 @@
 .info-page {
   min-height: 100vh;
-  background: #ebe5da;
-  color: #253028;
+  background: #edf3f5;
+  color: #172b3a;
 }
 .info-nav {
   min-height: 72px;
@@ -10,8 +10,8 @@
   justify-content: space-between;
   gap: 22px;
   padding: 0 clamp(22px, 7vw, 100px);
-  border-bottom: 1px solid #b9b1a4;
-  background: #f5f0e6;
+  border-bottom: 1px solid #C1BFA8;
+  background: #e1ebee;
 }
 .info-nav a {
   color: #3c4b41;
@@ -34,7 +34,7 @@
 }
 .info-heading {
   padding-bottom: 32px;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .info-heading small {
   color: #626a63;
@@ -60,7 +60,7 @@
   grid-template-columns: 230px 1fr;
   gap: 38px;
   padding: 30px 0;
-  border-bottom: 1px solid #b9b1a4;
+  border-bottom: 1px solid #C1BFA8;
 }
 .info-sections h2 {
   margin: 0;
@@ -88,7 +88,7 @@
   margin-top: 7px;
 }
 .info-sections a {
-  color: #2e4434;
+  color: #235f63;
   font-weight: 700;
   text-underline-offset: 4px;
 }
