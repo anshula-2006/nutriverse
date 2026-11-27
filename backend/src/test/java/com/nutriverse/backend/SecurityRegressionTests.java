@@ -58,7 +58,7 @@ class SecurityRegressionTests {
                         new DashboardController(dashboard), new MealLogController(meals),
                         new WaterLogController(water), new NutritionProfileController(profiles),
                         new NutritionController(lookup, nutritionMeals), new ChatController(groq, mock(RecommendationService.class)),
-                        new KnowledgeGraphController(graph))
+                        new KnowledgeGraphController(graph, mock(IfctFoodDataProvider.class), mock(org.springframework.data.neo4j.core.Neo4jClient.class)))
                 .addInterceptors(new JwtAuthenticationInterceptor(jwt))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
         authorization = "Bearer " + jwt.generateToken("owner", "test-user", "USER");

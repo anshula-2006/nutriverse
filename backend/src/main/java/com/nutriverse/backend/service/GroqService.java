@@ -1,4 +1,4 @@
-﻿package com.nutriverse.backend.service;
+package com.nutriverse.backend.service;
 
 import com.nutriverse.backend.dto.DashboardResponse;
 import com.nutriverse.backend.dto.NutritionResult;
