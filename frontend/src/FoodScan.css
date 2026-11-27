@@ -1,7 +1,7 @@
 .scan-page {
   min-height: 100vh;
-  background: #ebe5da;
-  color: #253028;
+  background: #edf3f5;
+  color: #172b3a;
 }
 .scan-main {
   width: min(960px, calc(100% - 40px));
@@ -27,7 +27,7 @@
   font:
     700 clamp(32px, 5vw, 52px)/1.15 Georgia,
     serif;
-  color: #2e4434;
+  color: #235f63;
   margin: 0 0 12px;
 }
 .scan-header span,
@@ -49,8 +49,8 @@
   gap: 8px;
   text-align: left;
   padding: 22px !important;
-  background: #f7f3eb !important;
-  color: #2e4434 !important;
+  background: #ffffff !important;
+  color: #235f63 !important;
   border: 1px solid #c8c2b6 !important;
   border-radius: 14px !important;
   min-height: 104px;
@@ -58,7 +58,7 @@
 .scan-tabs button[aria-pressed="true"] {
   border-color: #58765b !important;
   box-shadow: inset 0 0 0 1px #58765b;
-  background: #e0e9dc !important;
+  background: #dceceb !important;
 }
 .scan-tabs strong {
   font-size: 17px;
@@ -69,7 +69,7 @@
   line-height: 1.4;
 }
 .scan-panel {
-  background: #f8f5ee;
+  background: #FFFCF6;
   border: 1px solid #d1cabe;
   border-radius: 16px;
   padding: 28px;
@@ -80,7 +80,7 @@
   font:
     700 27px Georgia,
     serif;
-  color: #2e4434;
+  color: #235f63;
   margin: 0 0 12px;
 }
 .scan-panel h3 {
@@ -96,9 +96,9 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #3d5943;
+  border: 1px solid #235f63;
   border-radius: 8px;
-  background: #3d5943;
+  background: #235f63;
   color: #fff;
   padding: 11px 17px;
   min-height: 42px;
@@ -120,7 +120,7 @@
   margin: 6px 10px 10px 0;
   overflow: hidden;
   background: #e4ebdf;
-  color: #2e4434;
+  color: #235f63;
 }
 .scan-upload input {
   position: absolute;
@@ -132,8 +132,8 @@
 .scan-main input:not([type="file"]),
 .scan-main select {
   font: inherit;
-  color: #253028;
-  background: #fffdf8;
+  color: #172b3a;
+  background: #ffffff;
   border: 1px solid #bcbfb4;
   border-radius: 8px;
   padding: 10px 12px;
@@ -156,7 +156,7 @@
   width: 100%;
   max-height: 280px;
   object-fit: contain;
-  background: #eee9df;
+  background: #edf3f5;
   border-radius: 10px;
   margin: 18px 0;
 }
@@ -214,7 +214,7 @@
   margin: 20px 0;
 }
 .scan-nutrients > div {
-  background: #e9eee4;
+  background: #dceceb;
   padding: 16px;
   border-radius: 10px;
   display: flex;
@@ -228,7 +228,7 @@
 }
 .scan-nutrients strong {
   font-size: 19px;
-  color: #2e4434;
+  color: #235f63;
 }
 .scan-error {
   color: #9b3028;
@@ -249,7 +249,7 @@
 }
 .scan-actions button + button {
   background: transparent;
-  color: #2e4434;
+  color: #235f63;
 }
 @media (max-width: 650px) {
   .scan-main {
@@ -314,7 +314,7 @@
 .scan-panel summary {
   cursor: pointer;
   font-weight: 700;
-  color: #2e4434;
+  color: #235f63;
 }
 @media (max-width: 750px) {
   .scan-review-row {

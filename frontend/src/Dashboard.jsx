@@ -192,7 +192,7 @@ export default function Dashboard() {
                 <div className="week-item" key={day}>
                   <span>{Math.round(number(value))}</span>
                   <div className="week-track">
-                    <i style={{ height: `${Math.max(6, number(value) / maxWeek * 100)}%` }} />
+                    <i style={{ height: `${Math.max(0, number(value) / maxWeek * 100)}%` }} />
                   </div>
                   <small>{day}</small>
                 </div>
@@ -202,7 +202,7 @@ export default function Dashboard() {
           <article className="dash-panel macro-panel">
             <PanelTitle label="TODAY" title="Macronutrient distribution" />
             <div className="macro-layout">
-              <div className="macro-donut"
+              <div className={macroCalories ? "macro-donut" : "macro-donut empty"}
                 style={{ "--carbs": `${carbPct}%`, "--protein": `${carbPct + proteinPct}%` }}>
                 <div><strong>{Math.round(calories)}</strong><small>kcal</small></div>
               </div>
@@ -220,29 +220,7 @@ export default function Dashboard() {
               <div><span>MEAL LOG</span><h2>Today's meals</h2></div>
               <button onClick={() => setFoodOpen(true)}>Add food</button>
             </div>
-            {!data.todayMeals?.length ? (
-              <div className="no-meals">
-                <div><strong>No meals logged yet</strong><p>Tell Nutri what you ate or add a food manually.</p></div>
-                <button onClick={() => navigate("/chat")}>Tell Nutri what I ate</button>
-              </div>
-            ) : (
-              <div className="meal-list">
-                {data.todayMeals.map((meal, index) => (
-                  <div className="meal-row" key={meal.id || index}>
-                    <div className="meal-dot" />
-                    <div className="meal-main">
-                      <small>{format(meal.mealType)}</small>
-                      <strong>{meal.foodName}</strong>
-                      <Source food={meal} />
-                    </div>
-                    <div className="meal-values">
-                      <strong>{nutrition(meal.calories, "kcal")}</strong>
-                      <span>{nutrition(meal.protein, "g protein")}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <MealGroups meals={data.todayMeals || []} />
           </article>
           <article className="dash-panel progress-panel">
             <PanelTitle label="DAILY PROGRESS" title="Remaining today" />
@@ -343,3 +321,43 @@ const remaining = (target, used, unit) => target == null ? "Target not set" : `$
 const format = value => value ? value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : "Meal";
 const greeting = () => new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
 const todayLabel = () => new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date());
+
+
+function MealGroups({ meals }) {
+  const types = ["BREAKFAST", "LUNCH", "SNACK", "DINNER"];
+  const typeOf = meal => String(meal.mealType || "").toUpperCase();
+  const total = (items, field, unit) => {
+    const known = items.filter(item => item[field] != null && item[field] !== "" && Number.isFinite(Number(item[field])));
+    if (!known.length) return "N/A";
+    const sum = known.reduce((acc, item) => acc + Number(item[field]), 0);
+    return `${round(sum)} ${unit}${known.length < items.length ? " (partial)" : ""}`;
+  };
+  const groups = types.map(type => ({ type, items: meals.filter(meal => typeOf(meal) === type) }));
+  const other = meals.filter(meal => !types.includes(typeOf(meal)));
+  if (other.length) groups.push({ type: "OTHER", items: other });
+  return <div className="meal-groups">
+    {groups.map(({ type, items }) => (
+      <details className={`meal-group meal-${type.toLowerCase()}`} key={type}>
+        <summary>
+          <div><strong>{format(type)}</strong><small>{items.length ? `${items.length} food item${items.length === 1 ? "" : "s"}` : "Not logged yet"}</small></div>
+          <span>{items.length ? total(items, "calories", "kcal") : "â€”"}</span>
+        </summary>
+        {items.length ? <>
+          <div className="meal-group-macros">
+            <span>Protein: {total(items, "protein", "g")}</span>
+            <span>Carbs: {total(items, "carbs", "g")}</span>
+            <span>Fat: {total(items, "fat", "g")}</span>
+          </div>
+          {items.map((meal, index) => <div className="meal-row" key={meal.id || index}>
+            <div className="meal-dot" />
+            <div className="meal-main"><strong>{meal.foodName}</strong>
+              {meal.quantity != null && <small>{meal.quantity} {meal.servingUnit || ""}</small>}
+              <Source food={meal} />
+            </div>
+            <div className="meal-values"><strong>{total([meal], "calories", "kcal")}</strong><span>{total([meal], "protein", "g protein")}</span></div>
+          </div>)}
+        </> : <p className="meal-group-empty">No food logged for this meal.</p>}
+      </details>
+    ))}
+  </div>;
+}

@@ -1,20 +1,20 @@
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
-  color: #253028;
-  background: #ebe5da;
+  color: #172b3a;
+  background: #edf3f5;
 
-  --nv-bg: #ebe5da;
-  --nv-surface: #f5f0e6;
-  --nv-surface-muted: #e2ddd1;
-  --nv-ink: #253028;
-  --nv-dark: #253028;
-  --nv-olive: #2e4434;
-  --nv-green: #596f5d;
-  --nv-green-light: #dfe4dc;
-  --nv-muted: #687069;
-  --nv-border: #b9b1a4;
-  --nv-danger: #713b36;
-  --nv-danger-bg: #eee2dc;
+  --nv-bg: #edf3f5;
+  --nv-surface: #e1ebee;
+  --nv-surface-muted: #E8E4DA;
+  --nv-ink: #172b3a;
+  --nv-dark: #172b3a;
+  --nv-olive: #235f63;
+  --nv-green: #347c80;
+  --nv-green-light: #dceceb;
+  --nv-muted: #5A5144;
+  --nv-border: #C1BFA8;
+  --nv-danger: #A52B22;
+  --nv-danger-bg: #F8E4DF;
 }
 
 * {
@@ -101,4 +101,231 @@ img {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* NutriVerse final design system */
+
+:root {
+    --nv-feather: #edf3f5;
+    --nv-cream: #e1ebee;
+    --nv-ash: #A4A298;
+    --nv-charcoal: #172b3a;
+    --nv-forest: #235f63;
+    --nv-herbal: #347c80;
+    --nv-sage: #71999d;
+    --nv-avocado: #A3C45C;
+    --nv-cinnamon: #815e40;
+    --nv-turmeric: #c99d73;
+    --nv-sunshine: #c99d73;
+    --nv-carrot: #F96015;
+    --nv-tomato: #D52518;
+    --nv-ocean: #245f86;
+    --nv-water: #5D9CBD;
+
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+body {
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+#root h1,
+#root h2,
+#root h3 {
+    font-family: "Playfair Display", Georgia, serif;
+}
+
+#root button,
+#root input,
+#root select,
+#root textarea {
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+#root button {
+    min-height: 44px;
+}
+
+#root input,
+#root select,
+#root textarea {
+    max-width: 100%;
+}
+
+:focus-visible {
+    outline: 3px solid #245f86;
+    outline-offset: 3px;
+}
+
+#root .app-nav {
+    background: #172b3a;
+    border-bottom: 1px solid #347c80;
+    gap: 12px 24px;
+}
+
+#root .app-brand strong {
+    color: #c99d73;
+    font-family: "Playfair Display", Georgia, serif;
+}
+
+#root .app-brand small,
+#root .app-user small,
+#root .app-user strong,
+#root .app-source-link,
+#root .app-links a {
+    color: #edf3f5;
+}
+
+#root .app-links a {
+    font-size: 15px;
+}
+
+#root .app-links a.active,
+#root .app-links a:hover {
+    color: #c99d73;
+    border-bottom-color: #c99d73;
+}
+
+#root .app-account button {
+    color: #edf3f5;
+    border-color: #A4A298;
+    border-radius: 8px;
+}
+
+#root .app-account button:hover {
+    background: #347c80;
+}
+
+#root .home-copy h1 {
+    font-size: clamp(36px, 5vw, 56px);
+}
+
+#root .home-hero {
+    padding-block: clamp(24px, 4vw, 48px);
+    gap: clamp(24px, 4vw, 56px);
+}
+
+#root .home-image img {
+    border-radius: 20px;
+    height: clamp(280px, 38vw, 460px);
+}
+
+#root .home-actions a {
+    font-size: 16px;
+    border-radius: 10px;
+    padding: 12px 20px;
+}
+
+#root .home-actions a:first-child {
+    background: #235f63;
+    color: #edf3f5;
+}
+
+#root .home-product,
+#root .home-method,
+#root .home-docs {
+    padding-block: 32px;
+}
+
+#root .home-product-list p,
+#root .home-method p,
+#root .home-facts dd,
+#root .scan-header span,
+#root .scan-panel p {
+    font-size: 16px;
+}
+
+#root .scan-main {
+    padding-top: 24px;
+}
+
+#root .scan-header {
+    margin-bottom: 20px;
+}
+
+#root .scan-header h1 {
+    font-size: clamp(30px, 4vw, 44px);
+}
+
+#root .scan-tabs {
+    margin-bottom: 16px;
+}
+
+#root .scan-tabs button {
+    min-height: 76px;
+    padding: 14px !important;
+}
+
+#root .scan-panel {
+    padding: clamp(16px, 3vw, 24px);
+}
+
+#root .scan-nutrients > div:nth-child(1) {
+    background: #efe2d5;
+}
+
+#root .scan-nutrients > div:nth-child(2) {
+    background: #dceceb;
+}
+
+#root .scan-nutrients > div:nth-child(3) {
+    background: #e9e3ef;
+}
+
+#root .scan-nutrients > div:nth-child(4) {
+    background: #e1ebee;
+}
+
+#root .scan-nutrients > div:nth-child(5) {
+    background: #DFECF2;
+}
+
+#root .scan-nutrients > div:nth-child(6) {
+    background: #E8E4DA;
+}
+
+@media (max-width: 650px) {
+    body {
+        font-size: 16px;
+    }
+
+    #root .app-nav {
+        padding: 10px 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    #root .app-links {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        overflow: visible;
+    }
+
+    #root .app-links a {
+        min-width: 0;
+        text-align: center;
+        font-size: 13px;
+        padding: 10px 2px;
+        overflow-wrap: anywhere;
+    }
+
+    #root .app-user {
+        display: none;
+    }
+
+    #root .scan-review-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #root .scan-review-name,
+    #root .scan-review-row select {
+        grid-column: 1;
+    }
+
+    #root input,
+    #root select,
+    #root textarea {
+        font-size: 16px;
+    }
 }

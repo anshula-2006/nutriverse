@@ -1,0 +1,110 @@
+/* NutriVerse premium responsive theme */
+:root { --paper:#fffaef; --forest:#235f63; --ink:#172b3a; --line:#d9d5c5; --shadow:0 12px 36px #344b3020; }
+#root {font-family:"DM Sans","Segoe UI",sans-serif;color:var(--ink);}
+#root h1,#root h2,#root h3 {font-family:"Playfair Display",Georgia,serif;}
+#root :is(.home-page,.dash-page,.chat-page,.scan-page,.profile-page,.info-page,.auth-page) {background:radial-gradient(ellipse at 95% 0%,#c8d8b6 0%,transparent 42%),radial-gradient(ellipse at 0% 65%,#f2dfb9 0%,transparent 45%),linear-gradient(135deg,#edf3f5,#e9ecdb);color:var(--ink);}
+#root :is(.app-nav,.home-nav,.info-nav) {background:#172b3a;color:#edf3f5;border:0;box-shadow:0 5px 20px #203a3020;}
+#root :is(.app-brand strong,.home-logo,.info-brand) {color:#c99d73!important;}
+#root :is(.app-brand small,.app-user small,.app-user strong,.app-source-link,.app-links a,.home-nav nav a,.info-nav a) {color:#edf3f5;}
+#root .app-links a.active {color:#c99d73;border-color:#c99d73;}
+#root .app-account button {color:#edf3f5;border-color:#71999d;border-radius:10px;}
+#root .app-nav {grid-template-columns:auto minmax(0,1fr) auto;gap:16px;}
+#root :is(.dash-panel,.dash-stat,.profile-section,.scan-panel,.auth-shell,.chat-intro,.info-heading) {background:#ffffff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);}
+#root :is(.dash-main,.profile-main,.scan-main,.chat-main,.info-document) {padding-top:24px;}
+#root .home-hero {padding:36px 0;gap:36px;}
+#root .home-image img {border-radius:24px;box-shadow:var(--shadow);height:clamp(280px,38vw,470px);}
+#root .home-copy h1 {font-size:clamp(36px,5vw,58px);color:var(--forest);}
+#root .home-actions a {border-radius:12px;font-size:16px;padding:12px 20px;}
+#root .home-actions a.secondary {background:#c99d73;color:#172b3a;border-color:#c99d73;}
+#root :is(.home-product,.home-method,.home-docs) {padding-block:28px;}
+#root .dash-heading {padding:26px;border-radius:22px;background:linear-gradient(90deg,#172b3af5 0%,#172b3ae8 52%,#172b3a70),url('./assets/images/dashboard-hero.jpg') center/cover;box-shadow:var(--shadow);}
+#root .dash-heading :is(h1,h1 em,p,.dash-eyebrow) {color:#edf3f5;}
+#root .dash-heading-actions button {background:#c99d73;color:#172b3a;border-color:#c99d73;}
+#root .dash-heading-actions .soft {background:#edf3f5;color:#235f63;border-color:#edf3f5;}
+#root .dash-stat {min-height:135px;padding:16px;}
+#root .dash-stat:nth-child(1) {background:linear-gradient(135deg,#fff6d7,#efd18a);}
+#root .dash-stat:nth-child(2) {background:linear-gradient(135deg,#f1f7e7,#cbdcb3);}
+#root .dash-stat:nth-child(3) {background:linear-gradient(135deg,#eff8ff,#c5e0ed);}
+#root .dash-stat:nth-child(4) {background:linear-gradient(135deg,#fff0e5,#ebc6ac);}
+#root .dash-stat > strong {margin:10px 0;font-size:clamp(22px,3vw,32px);}
+#root .stat-title {font-size:14px;color:var(--ink);}
+#root .dash-stat p {font-size:13px;color:#49564b;}
+#root .stat-icon {background:#ffffff99;}
+#root .week-chart {height:200px;}
+#root .macro-layout {min-height:200px;}
+#root .macro-donut {background:conic-gradient(#c99d73 0 var(--carbs),#347c80 var(--carbs) var(--protein),#5d9cbd var(--protein) 100%);}
+#root .macro-donut.empty {background:#e2e4dc;}
+#root .macro-row i.carbs {background:#c99d73;}
+#root .macro-row i.protein {background:#347c80;}
+#root .macro-row i.fat {background:#5d9cbd;}
+#root :is(.macro-row strong,.progress-row,.meal-main > strong,.profile-field,.dash-modal label) {font-size:15px;}
+#root :is(.food-source,.meal-values span,.macro-row small,.week-item small,.panel-title-row span) {font-size:12px;color:#49564b;}
+#root .chat-main {max-width:1200px;}
+#root .chat-intro {overflow:hidden;background:linear-gradient(135deg,#edf3f5,#e0ebd2);}
+#root .chat-intro img {min-height:200px;max-height:320px;}
+#root .chat-bubble {background:#ffffff;border-radius:18px 18px 18px 4px;border-color:var(--line);font-size:16px;box-shadow:0 4px 16px #344b3010;}
+#root .chat-message.user .chat-bubble {background:#235f63;color:#edf3f5;border-radius:18px 18px 4px 18px;}
+#root .chat-input-wrap {background:#edf3f5;border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:var(--shadow);}
+#root .chat-input-wrap textarea {border-radius:10px;background:white;font-size:16px;}
+#root :is(.chat-input-wrap button,.kg-toggle,.profile-actions button,.profile-header button,.auth-submit) {border-radius:12px;background:#235f63;color:#edf3f5;}
+#root .kg-toggle {background:#245f86;border-color:#245f86;}
+#root .kg-content {background:#eef6fa;border:1px solid #9dbfcf;border-radius:16px;}
+#root .kg-food-node {fill:#dceceb;stroke:#235f63;}
+#root .kg-nutrient-node {fill:#efe2d5;stroke:#815e40;}
+#root .kg-source-node {fill:#dfecf2;stroke:#245f86;}
+#root .kg-detail,#root .recommendation-evidence {background:#dfecf2;}
+#root .profile-summary {border-radius:18px;background:#dceceb;overflow:hidden;}
+#root .profile-section {margin-top:16px;padding:22px;}
+#root .profile-grid {gap:14px 20px;}
+#root :is(.profile-field input,.profile-field select,.auth-form input,.dash-modal input,.dash-modal select) {border-radius:10px;background:#edf3f5;font-size:16px;min-height:46px;}
+#root .profile-actions .secondary {background:#e1ebee;color:#235f63;}
+#root .scan-tabs button {background:#ffffff!important;border-radius:16px!important;box-shadow:0 5px 14px #344b3010;}
+#root .scan-tabs button[aria-pressed=true] {background:#dceceb!important;border-color:#235f63!important;}
+#root .scan-nutrients > div {background:#dceceb;}
+#root .scan-nutrients > div:nth-child(3n+1) {background:#efe2d5;}
+#root .scan-nutrients > div:nth-child(3n+2) {background:#dfecf2;}
+#root .auth-shell {overflow:hidden;max-width:1100px;}
+#root .auth-photo,#root .auth-photo-copy,#root .auth-form-side {min-height:560px;}
+#root .auth-photo img {filter:brightness(.55) saturate(.95);}
+#root .auth-photo-copy > a {color:#c99d73;}
+#root .auth-form-side {background:linear-gradient(145deg,#ffffff,#e1ebee);}
+#root .auth-form h2 {font-size:40px;color:#235f63;}
+#root .auth-legal a {font-size:13px;}
+#root .info-heading {padding:26px;background:linear-gradient(135deg,#ffffff,#dceceb);}
+#root .info-sections section {padding:22px 0;}
+#root :is(.info-sections p,.profile-header p,.profile-section-head p,.scan-panel p,.home-facts dd,.auth-subtitle,.recommendation-section p,.recommendation-reasons li) {font-size:16px;line-height:1.65;}
+#root :is(button,.scan-upload) {min-height:44px;}
+#root :is(input,select,textarea) {max-width:100%;}
+#root :focus-visible {outline:3px solid #245f86;outline-offset:3px;}
+@media(max-width:1080px){#root .app-nav {grid-template-columns:minmax(0,1fr) auto;} #root .app-links {grid-column:1/-1;}}
+@media(max-width:760px){
+#root :is(.dash-page,.chat-page,.scan-page,.profile-page) {padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+#root .app-nav {padding:10px 14px;}
+#root .app-links {position:fixed;bottom:0;left:0;right:0;z-index:60;background:#172b3a;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:6px 4px calc(8px + env(safe-area-inset-bottom));border-top:1px solid #71999d;overflow:visible;}
+#root .app-links a {min-width:0;white-space:normal;text-align:center;font-size:12px;min-height:48px;display:grid;place-items:center;padding:6px 2px;}
+#root .app-user {display:none;}
+#root .dash-heading {padding:18px;gap:14px;}
+#root .dash-summary {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+#root .dash-stat {min-width:0;min-height:125px;padding:12px;overflow-wrap:anywhere;}
+#root .dash-heading-actions {display:flex;flex-wrap:wrap;}
+#root .dash-heading-actions button {flex:1 1 100px;}
+#root .dash-panel {min-width:0;padding:15px;}
+#root .week-chart {gap:4px;height:170px;}
+#root .week-track {width:20px;}
+#root .chat-messages {height:45dvh;min-height:200px;}
+#root .chat-intro img {height:145px;min-height:0;}
+#root .chat-intro-copy {padding:18px;}
+#root .chat-message {width:96%;}
+#root .chat-input-wrap {grid-template-columns:minmax(0,1fr) 70px;}
+#root .auth-page {padding:12px;}
+#root .auth-shell {grid-template-columns:1fr;}
+#root .auth-photo,#root .auth-photo-copy {min-height:180px;}
+#root .auth-photo-copy {padding:18px;}
+#root .auth-photo-copy h1 {font-size:25px;}
+#root .auth-photo-copy span {display:none;}
+#root .auth-form-side {min-height:0;padding:24px 18px;}
+#root .info-nav {flex-direction:row;align-items:center;}
+#root .home-hero {gap:20px;padding:24px 0;}
+#root .home-footer {flex-wrap:wrap;}
+#root :is(input,select,textarea) {font-size:16px;}
+}
