@@ -14,9 +14,9 @@ public class CompositeMealService {
     private static final Pattern SERVINGS = Pattern.compile(
             "(?i)(?:makes?|serves?)\\s*(\\d+)|(\\d+)\\s*servings?");
     private static final Pattern NUTRIENT = Pattern.compile(
-            "(?i)\\b(calories?|kcal|protein|carbs?|carbohydrates?|fat|fiber|fibre|sodium|potassium|calcium|iron|nutrition|macros?)\\b");
+            "(?i)\\b(calories?|kcal|protein|carbs?|carbohydrates?|fat|fiber|fibre|sodium|potassium|calcium|iron|nutrition(?:al)?|macros?)\\b");
     private static final Pattern FOOD_QUERY = Pattern.compile(
-            "(?i)\\b(?:calories?|kcal|protein|carbs?|carbohydrates?|fat|fiber|fibre|sodium|potassium|calcium|iron|nutrition|macros?)\\b.*?\\b(?:in|of|for)\\s+(.+)$");
+            "(?i)\\b(?:calories?|kcal|protein|carbs?|carbohydrates?|fat|fiber|fibre|sodium|potassium|calcium|iron|nutrition(?:al)?|macros?)\\b.*?\\b(?:in|of|for)\\s+(.+)$");
     private static final Pattern FOOD_HAVE = Pattern.compile(
             "(?i)\\b(?:does|do)\\s+(.+?)\\s+(?:have|contain|contains)\\b");
     public CompositeMealService(NutritionLookupService lookup, ChatMemory memory) {
@@ -26,7 +26,8 @@ public class CompositeMealService {
     public ChatResponse handle(String userId, String message) {
         if (message == null || message.isBlank()) return null;
         Context pending = findPending(userId);
-        if (pending != null && hasDetails(message)) {
+        if (pending != null && hasDetails(message)
+                && !NUTRIENT.matcher(message).find() && !message.contains("?")) {
             String details = pending.details().isBlank()
                     ? message : pending.details() + ", " + message;
             ChatResponse response = calculate(pending.dish(), details);
@@ -36,13 +37,20 @@ public class CompositeMealService {
         if (!NUTRIENT.matcher(message).find()) return null;
         String dish = dishName(message);
         if (dish == null) return null;
+        if ("rice".equals(dish) && !isHomemade(message)) {
+            ChatResponse response = new ChatResponse(
+                    "Do you mean raw rice, cooked rice, or rice flakes? "
+                    + "Please repeat your question with the type and quantity.");
+            save(userId, message, response);
+            return response;
+        }
         ChatResponse response;
         if (isHomemade(message)) {
             response = prompt(dish, false);
         } else {
             NutritionResult food = findGoodVerifiedMatch(dish);
             response = food != null
-                    ? new ChatResponse(formatNutrition(food, requestedNutrient(message)))
+                    ? new ChatResponse(formatNutrition(food, requestedNutrient(message), message))
                     : prompt(dish, true);
         }
         save(userId, message, response);
@@ -57,6 +65,9 @@ public class CompositeMealService {
             for (NutritionResult food : results) {
                 if (!validVerifiedFood(food)) continue;
                 int score = matchScore(query, food.getFoodName());
+                if (score < 70) continue;
+                if ("AUTHORITATIVE_DATABASE".equals(food.getSourceType())) score += 30;
+                if ("ICMR-NIN IFCT 2017".equals(food.getSource())) score += 10;
                 if (score > bestScore) {
                     best = food;
                     bestScore = score;
@@ -85,13 +96,34 @@ public class CompositeMealService {
                 && "g".equalsIgnoreCase(food.getServingUnit());
     }
     private int matchScore(String query, String foodName) {
-        Set<String> queryWords = words(query);
-        Set<String> foodWords = words(foodName);
-        if (queryWords.isEmpty()) return 0;
-        int matches = 0;
-        for (String word : queryWords) if (foodWords.contains(word)) matches++;
-        return (int) Math.round(100.0 * matches / queryWords.size());
+    Set<String> queryWords = words(query);
+    Set<String> foodWords = words(foodName);
+
+    if (queryWords.isEmpty() || foodWords.isEmpty()) {
+        return 0;
     }
+
+    if (!foodWords.containsAll(queryWords)) {
+        return 0;
+    }
+
+    Set<String> differentFoods = Set.of(
+            "noodle", "flake", "flour", "cake",
+            "cracker", "bread", "pasta", "juice",
+            "biscuit", "starch"
+    );
+
+    for (String word : differentFoods) {
+        if (foodWords.contains(word)
+                && !queryWords.contains(word)) {
+            return 0;
+        }
+    }
+
+    int extraWords = foodWords.size() - queryWords.size();
+
+    return Math.max(0, 100 - extraWords * 5);
+}
     private Set<String> words(String text) {
         Set<String> words = new HashSet<>();
         for (String word : normalize(text).split(" ")) {
@@ -157,7 +189,8 @@ public class CompositeMealService {
         if (!matcher.find()) return null;
         String value = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
         try {
-            return Integer.parseInt(value);
+            int servings = Integer.parseInt(value);
+            return servings > 0 ? servings : null;
         } catch (NumberFormatException e) {
             return null;
         }
@@ -198,24 +231,36 @@ public class CompositeMealService {
     private Double value(double[] total, boolean[] available, int index, int servings) {
         return available[index] ? round(total[index] / servings) : null;
     }
-    private String formatNutrition(NutritionResult food, String nutrient) {
-        if (nutrient != null) {
-            Double value = nutrientValue(food, nutrient);
-            return food.getFoodName() + "\n" + nutrient + ": "
-                    + (value == null ? "N/A" : number(value) + " " + unit(nutrient))
-                    + " per " + number(food.getServingSize()) + " g"
-                    + "\nSource: " + food.getSource()
-                    + "\nSource ID: " + food.getSourceId();
+    private String formatNutrition(NutritionResult food, String nutrient, String message) {
+        double grams = food.getServingSize();
+        Matcher matcher = Pattern.compile(
+                "(?i)\\b(\\d+(?:\\.\\d+)?)\\s*(kg|mg|grams?|g)\\b").matcher(message);
+        if (matcher.find()) {
+            double amount = Double.parseDouble(matcher.group(1));
+            grams = switch (matcher.group(2).toLowerCase(Locale.ROOT)) {
+                case "kg" -> amount * 1000;
+                case "mg" -> amount / 1000;
+                default -> amount;
+            };
         }
-        return food.getFoodName()
-                + "\nPer " + number(food.getServingSize()) + " g:"
-                + "\nCalories: " + show(food.getCalories(), "kcal")
-                + "\nProtein: " + show(food.getProtein(), "g")
-                + "\nCarbohydrates: " + show(food.getCarbs(), "g")
-                + "\nFat: " + show(food.getFat(), "g")
-                + "\nFiber: " + show(food.getFiber(), "g")
-                + "\nSource: " + food.getSource()
-                + "\nSource ID: " + food.getSourceId();
+        if (!Double.isFinite(grams) || grams <= 0) {
+            return "Please enter a positive food quantity in grams.";
+        }
+        double factor = grams / food.getServingSize();
+        StringBuilder reply = new StringBuilder(food.getFoodName());
+        reply.append("\nFor ").append(number(grams)).append(" g:");
+        List<String> nutrients = nutrient == null
+                ? List.of("Calories", "Protein", "Carbohydrates", "Fat", "Fiber",
+                          "Iron", "Calcium", "Sodium", "Potassium")
+                : List.of(nutrient);
+        for (String name : nutrients) {
+            Double value = nutrientValue(food, name);
+            reply.append("\n").append(name).append(": ")
+                    .append(value == null ? "N/A" : number(value * factor) + " " + unit(name));
+        }
+        reply.append("\nSource: ").append(food.getSource());
+        reply.append("\nSource ID: ").append(food.getSourceId());
+        return reply.toString();
     }
     private String requestedNutrient(String text) {
         String value = normalize(text);
@@ -293,6 +338,8 @@ public class CompositeMealService {
             if (matcher.find()) dish = matcher.group(1);
         }
         if (dish == null) return null;
+        dish = dish.replaceFirst(
+                "(?i)^\\s*\\d+(?:\\.\\d+)?\\s*(?:kg|mg|g|grams?)\\b\\s*(?:of\\s+)?", "");
         dish = normalize(dish)
                 .replaceAll("\\b(?:my|the|a|an|homemade|home made|home-made)\\b", " ")
                 .replaceAll("\\s+", " ").trim();

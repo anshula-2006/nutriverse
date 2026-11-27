@@ -1,4 +1,4 @@
-package com.nutriverse.backend.service;
+﻿package com.nutriverse.backend.service;
 
 import com.nutriverse.backend.dto.DashboardResponse;
 import com.nutriverse.backend.dto.NutritionResult;
@@ -6,6 +6,7 @@ import com.nutriverse.backend.dto.RecommendationResponse;
 import com.nutriverse.backend.model.NutritionProfile;
 import com.nutriverse.backend.repository.NutritionProfileRepository;
 
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -171,7 +172,7 @@ public class GroqService {
             }
 
         } else {
-            reply = aiReply(userId, history, message, null);
+            reply = aiReply(userId, history, message, retrieveFoodContext(message));
         }
 
         extraction.processAssistantReply(userId, reply);
@@ -276,7 +277,7 @@ public class GroqService {
 
         for (String raw : response.split("\\R")) {
             String item = raw
-                    .replaceFirst("^\\s*(?:[-*•]|\\d+[.)-]?)\\s*", "")
+                    .replaceFirst("^\\s*(?:[-*â€¢]|\\d+[.)-]?)\\s*", "")
                     .replace("*", "")
                     .trim();
 
@@ -438,6 +439,57 @@ public class GroqService {
 
     // ---------------- CHAT / FOOD CONTEXT ----------------
 
+    // Conservative retrieval for explicit single-food qualitative questions.
+    private NutritionResult retrieveFoodContext(String message) {
+        if (isRecipeRequest(message)) return null;
+        var matcher = Pattern.compile(
+                "(?i)^\\s*(?:is|are|can i eat|can i have|should i eat|tell me about|"
+                        + "what are the benefits of|what are the health benefits of)\\s+"
+                        + "(.+?)(?:\\s+(?:good|healthy|safe|suitable|beneficial|bad|for|if|with)\\b.*)?[?.!]*$")
+                .matcher(message);
+        if (!matcher.matches()) return null;
+        String query = normalize(matcher.group(1)).replaceFirst("^(?:a|an|the) ", "");
+        if (query.isBlank() || query.length() > 60) return null;
+        try {
+            var results = lookup.search(query);
+            if (results == null) return null;
+            Set<String> requested = foodWords(query);
+            if (requested.isEmpty()) return null;
+            NutritionResult best = null;
+            int bestScore = Integer.MIN_VALUE;
+            for (NutritionResult candidate : results) {
+                if (candidate == null || !traceable(candidate, candidate.getSourceId())) continue;
+
+                Set<String> words = foodWords(candidate.getFoodName());
+                if (!words.containsAll(requested)) continue;
+                if (Set.of("juice", "noodle", "flour", "cake", "sauce", "bread", "pie", "dried", "powder").stream()
+                        .anyMatch(w -> words.contains(w) && !requested.contains(w))) continue;
+                int score = 100 - 10 * (words.size() - requested.size());
+                if ("AUTHORITATIVE_DATABASE".equals(candidate.getSourceType())) score += 30;
+                if ("ICMR-NIN IFCT 2017".equals(candidate.getSource())) score += 5;
+                if (score > bestScore) { best = candidate; bestScore = score; }
+            }
+            if (best == null) return null;
+            NutritionResult exact = lookup.findBySourceId(best.getSource(), best.getSourceId());
+            if (!traceable(exact, best.getSourceId())) return null;
+            LoggerFactory.getLogger(GroqService.class).info("RAG food matched: {} | {}", query, exact.getFoodName());
+            return exact;
+        } catch (RuntimeException e) {
+            LoggerFactory.getLogger(GroqService.class).warn("RAG retrieval failed for {}: {}", query, e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private Set<String> foodWords(String name) {
+        Set<String> words = new HashSet<>();
+        for (String word : normalize(name).split(" ")) {
+            if (word.isBlank()) continue;
+            words.add(word.length() > 3 && word.endsWith("s")
+                    ? word.substring(0, word.length() - 1) : word);
+        }
+        return words;
+    }
+
     private String aiReply(
             String userId,
             List<Map<String, String>> history,
@@ -448,11 +500,84 @@ public class GroqService {
                 isRecipeRequest(message)
                         || isRecipeContextFollowup(history, message);
 
+        if (food != null && !recipeContext) {
+            Map<String, Double> graph = Map.of();
+            if ("ICMR-NIN IFCT 2017".equals(food.getSource())) {
+                try { graph = lookup.getGraphNutrients(food.getSourceId()); }
+                catch (RuntimeException ignored) { }
+            }
+            boolean graphBacked = !graph.isEmpty();
+            if (!graphBacked) {
+                graph = new LinkedHashMap<>();
+                Double[] values = {food.getCalories(), food.getProtein(), food.getCarbs(),
+                        food.getFat(), food.getFiber(), food.getSodium(), food.getPotassium(),
+                        food.getCalcium(), food.getIron()};
+                String[] keys = {"Energy", "Protein", "Carbohydrates", "Fat", "Fiber",
+                        "Sodium", "Potassium", "Calcium", "Iron"};
+                for (int i = 0; i < keys.length; i++) {
+                    if (values[i] != null && Double.isFinite(values[i]) && values[i] >= 0)
+                        graph.put(keys[i], values[i]);
+                }
+            }
+            if (!graph.isEmpty()) {
+                List<Map<String, String>> messages = buildMessages(userId, history, message, food);
+                messages.add(messages.size() - 1, msg("system",
+                        (graphBacked ? "NEO4J" : "VERIFIED FOOD RECORD")
+                        + " RETRIEVED EVIDENCE per " + food.getServingSize() + " g: " + graph
+                        + " (Energy kcal; Protein, Carbohydrates, Fat, Fiber g; minerals mg). "
+                        + "Answer the actual question directly, then explain why using the retrieved composition. "
+                        + "Give practical guidance and mention limitations. Use short paragraphs. "
+                        + "Do not output digits, numeric quantities, source names or source IDs. "
+                        + "Refer to type-2 diabetes simply as diabetes. The backend supplies exact values. "
+                        + "Do not describe small nutrient amounts as rich sources. "
+                        + "Do not infer glycemic index or clinical safety from nutrient composition."));
+                LoggerFactory.getLogger(GroqService.class).info(
+                        "{} prompt augmented: {} | {} nutrients", graphBacked ? "KG-RAG" : "Record-RAG", food.getSourceId(), graph.size());
+                String generated = guardQualitativeReply(callGroq(messages));
+                if (NO_FACTS.equals(generated)) {
+                    messages.add(messages.size() - 1, msg("system",
+                            "Rewrite as a direct qualitative explanation without any numbers, "
+                            + "database names, quantities or citations. Say diabetes, not its numbered type."));
+                    generated = guardQualitativeReply(callGroq(messages));
+                }
+                if (NO_FACTS.equals(generated)) {
+                    generated = "I retrieved the food composition, but couldn't generate a reliable explanation. "
+                            + "These values alone cannot establish whether a food is suitable for a medical condition.";
+                }
+                return generated + relevantEvidence(food, graph, message);
+            }
+        }
         String reply = callGroq(buildMessages(userId, history, message, food));
 
         return recipeContext
                 ? recipes.guardGeneratedRecipe(reply)
                 : guardQualitativeReply(reply);
+    }
+
+    private String relevantEvidence(NutritionResult food, Map<String, Double> graph, String message) {
+        String question = normalize(message);
+        Set<String> names = new LinkedHashSet<>();
+        if (question.contains("diabet") || question.contains("blood sugar")) {
+            names.addAll(List.of("Fiber", "Carbohydrates", "Energy"));
+        } else {
+            for (String name : List.of("Protein", "Fiber", "Carbohydrates", "Fat",
+                    "Sodium", "Potassium", "Calcium", "Iron")) {
+                if (question.contains(name.toLowerCase(Locale.ROOT))) names.add(name);
+            }
+            if (names.isEmpty()) names.addAll(List.of("Fiber", "Carbohydrates", "Energy"));
+        }
+        StringBuilder out = new StringBuilder("\n\nSupporting evidence â€” ")
+                .append(food.getFoodName()).append(" (per ").append(number(food.getServingSize())).append(" g):\n");
+        for (String name : names) {
+            String unit = switch (name) {
+                case "Energy" -> "kcal";
+                case "Sodium", "Potassium", "Calcium", "Iron" -> "mg";
+                default -> "g";
+            };
+            add(out, "Energy".equals(name) ? "Calories" : name, graph.get(name), unit);
+        }
+        return out.append("Source: ").append(food.getSource())
+                .append(" | Source ID: ").append(food.getSourceId()).toString();
     }
 
     private String selectedFoodReply(
@@ -706,7 +831,8 @@ public class GroqService {
     private String guardQualitativeReply(String reply) {
         if (reply == null || reply.isBlank()) return NO_FACTS;
 
-        String safe = reply.replaceAll("(?m)^\\s*\\d+[.)]\\s*", "");
+        String safe = reply.replaceAll("(?m)^\\s*\\d+[.)]\\s*", "")
+                .replaceAll("(?i)\\btype[\\s\\p{Pd}]*(?:2|two|II)\\s+diabetes\\b", "diabetes");
 
         if (SOURCE_CLAIM.matcher(reply).find()
                 || UNSUPPORTED_NUMBER.matcher(safe).find())
