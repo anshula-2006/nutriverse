@@ -316,7 +316,10 @@ export default function Chat() {
                 {item.role === "assistant"
                   ? item.recommendation
                     ? <RecommendationCards data={item.recommendation} />
-                    : <FormatText text={item.content} />
+                    : <>
+    <FormatText text={item.content} />
+    <GraphEvidence text={item.content} />
+  </>
                   : item.content}
               </div>
             </article>
@@ -418,4 +421,224 @@ function Bold({ text = "" }) {
   return text.split(/(\*\*.*?\*\*)/g).map((part, index) =>
     part.startsWith("**") && part.endsWith("**")
       ? <strong key={index}>{part.slice(2, -2)}</strong> : part);
+}
+
+function GraphEvidence({ text = "", evidence }) {
+  const navigate = useNavigate();
+
+  const [graph, setGraph] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  const source = evidence?.source ||
+    text.match(/Source:\s*([^|\r\n]+)/i)?.[1]?.trim();
+
+  const sourceId = evidence?.sourceId ||
+    text.match(/Source ID:\s*([A-Z]\d{3})\b/i)?.[1];
+
+  if (source !== "ICMR-NIN IFCT 2017" || !sourceId) {
+    return null;
+  }
+
+  async function toggleGraph() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+
+    setOpen(true);
+
+    if (graph) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams({
+        source,
+        sourceId
+      });
+
+      const response = await fetch(
+        `${API_URL}/api/kg/evidence?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      if (handleUnauthorized(response, navigate)) return;
+
+      if (!response.ok) {
+        throw new Error("Graph evidence is unavailable.");
+      }
+
+      const data = await response.json();
+      setGraph(data);
+
+    } catch (err) {
+      setError(err.message);
+
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="kg-panel">
+      <button
+        type="button"
+        className="kg-toggle"
+        onClick={toggleGraph}
+        disabled={loading}
+        aria-expanded={open}
+      >
+        {open ? "Hide Knowledge Graph" : "View Knowledge Graph"}
+      </button>
+
+      {open && (
+        <div className="kg-content">
+          {loading && <p>Retrieving verified graph evidence...</p>}
+
+          {error && <p className="kg-error">{error}</p>}
+
+          {graph && (
+            <>
+              <h3>{graph.foodName}</h3>
+
+              <p className="kg-verified">
+                {graph.verified
+                  ? "Verified source record"
+                  : "Source verification unavailable"}
+              </p>
+
+              <svg
+                viewBox="0 0 600 480"
+                className="kg-svg"
+                aria-label={`Knowledge graph for ${graph.foodName}`}
+              >
+                {graph.nutrients.map((nutrient, index) => {
+                  const angle =
+                    (index / graph.nutrients.length) *
+                    2 * Math.PI - Math.PI / 2;
+
+                  const x = 300 + 210 * Math.cos(angle);
+                  const y = 200 + 145 * Math.sin(angle);
+
+                  return (
+                    <g key={nutrient.name}>
+                      <line
+                        x1="300"
+                        y1="200"
+                        x2={x}
+                        y2={y}
+                        className="kg-edge"
+                      />
+
+                      <g
+                        className="kg-nutrient"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${nutrient.name}: ${nutrient.amount} ${nutrient.unit}`}
+                        onClick={() => setSelected(nutrient)}
+                        onKeyDown={event => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelected(nutrient);
+                          }
+                        }}
+                      >
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r="43"
+                          className="kg-nutrient-node"
+                        />
+
+                        <text x={x} y={y - 5}>
+                          {nutrient.name}
+                        </text>
+
+                        <text x={x} y={y + 13}>
+                          {nutrient.amount} {nutrient.unit}
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })}
+
+                <line
+                  x1="300"
+                  y1="200"
+                  x2="300"
+                  y2="420"
+                  className="kg-edge"
+                />
+
+                <circle
+                  cx="300"
+                  cy="200"
+                  r="57"
+                  className="kg-food-node"
+                />
+
+                <text x="300" y="196">Food</text>
+                <text x="300" y="215">{graph.sourceId}</text>
+
+                <rect
+                  x="190"
+                  y="395"
+                  width="220"
+                  height="50"
+                  rx="12"
+                  className="kg-source-node"
+                />
+
+                <text x="300" y="424">{graph.source}</text>
+              </svg>
+
+              <p className="kg-hint">
+                Select a nutrient to inspect its evidence.
+              </p>
+
+              {selected && (
+                <div className="kg-detail">
+                  <strong>{selected.name}</strong>
+                  <p>
+                    {selected.amount} {selected.unit} per{" "}
+                    {graph.servingSize} {graph.servingUnit}
+                  </p>
+                  <small>Relationship: CONTAINS</small>
+                </div>
+              )}
+
+              <div className="kg-values">
+                {graph.nutrients.map(nutrient => (
+                  <div key={nutrient.name}>
+                    <span>{nutrient.name}</span>
+                    <strong>
+                      {nutrient.amount} {nutrient.unit}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+
+              <p className="kg-source">
+                Source: {graph.source} | ID: {graph.sourceId}
+              </p>
+
+              <small>
+                Values are based on {graph.servingSize}{" "}
+                {graph.servingUnit} of food. Source verification
+                does not establish clinical effectiveness.
+              </small>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -126,6 +126,65 @@ public class KnowledgeGraphController {
         );
     }
 
+    @GetMapping("/evidence")
+public Map<String, Object> getEvidence(
+        @RequestParam String source,
+        @RequestParam String sourceId,
+        @RequestAttribute(
+                value = "authenticatedRole",
+                required = false
+        ) String role) {
+
+    if (!"USER".equals(role) && !"ADMIN".equals(role)) {
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Authentication required"
+        );
+    }
+
+    if (source.isBlank() || sourceId.isBlank()) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Source and source ID are required"
+        );
+    }
+
+    return neo4jClient.query("""
+            MATCH (f:Food {
+                source: $source,
+                sourceId: $sourceId
+            })-[r:CONTAINS]->(n:Nutrient)
+
+            MATCH (f)-[:SOURCED_FROM]->(s:Source)
+
+            WHERE f.verified = true
+              AND s.name = $source
+              AND r.perGrams = 100.0
+
+            RETURN f.name AS foodName,
+                   f.sourceId AS sourceId,
+                   s.name AS source,
+                   f.verified AS verified,
+                   f.servingSize AS servingSize,
+                   f.servingUnit AS servingUnit,
+                   collect({
+                       name: n.name,
+                       amount: r.amount,
+                       unit: r.unit
+                   }) AS nutrients
+            """)
+            .bind(source).to("source")
+            .bind(sourceId).to("sourceId")
+            .fetch()
+            .one()
+            .orElseThrow(() ->
+                    new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Knowledge graph evidence not found"
+                    )
+            );
+}
+
     private void addNutrient(
             List<Map<String, Object>> nutrients,
             String name, Double amount, String unit) {
