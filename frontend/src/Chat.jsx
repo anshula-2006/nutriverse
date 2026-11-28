@@ -67,6 +67,9 @@ function isRecommendationPrompt(text, previousPlainReply = false) {
     && hasAny(value, ["goal", "target", "remaining", "left", "consumed", "consume", "eaten", "ate", "logged", "hit my"]);
   if (profileUpdate || dailyProgress) return false;
   if (hasAny(value, ["recipe", "plan my meal", "plan my meals", "meal plan", "meal plans", "plan my diet"])) return false;
+  // A generic singular-meal request needs a clarification, not evidence cards.
+  if (/\b(?:give me|suggest|recommend|i want|i need)\b.*\bmeal\b/.test(value)
+      && !/\b(?:breakfast|lunch|dinner|snacks?)\b/.test(value)) return false;
   if (FOLLOW_UP.test(value) && previousPlainReply) return false;
   const substitution = hasAny(value, SUBSTITUTION_WORDS);
   if (substitution && previousPlainReply) return false;
