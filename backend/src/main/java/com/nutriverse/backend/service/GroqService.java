@@ -225,7 +225,7 @@ public class GroqService {
         if (message == null) return false;
         String t = normalize(message);
         // Requests for facts or logged food are not requests for a new meal idea.
-        if (t.matches(".*\\b(?:how much|how many|calories|protein|macros|i ate|i had|i logged|log my meal|my meal history)\\b.*"))
+        if (t.matches(".*\\b(?:how much|how many|nutrition facts|nutritional values|i ate|i had|i logged|log my meal|my meal history)\\b.*"))
             return false;
         boolean mealIdea = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need|ideas? for|what can i eat)\\b.*\\bmeal\\b.*")
                 || t.matches(".*\\bmeal\\b.*\\b(?:ideas?|suggestions?|plan)\\b.*");
