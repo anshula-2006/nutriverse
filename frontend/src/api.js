@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+﻿import { Capacitor } from "@capacitor/core";
 
 const platform = Capacitor.getPlatform();
 
@@ -24,7 +24,7 @@ export const API_URL = (
 export async function apiFetch(
   url,
   options = {},
-  timeout = 15000
+  timeout = 90000
 ) {
   const controller = new AbortController();
 
