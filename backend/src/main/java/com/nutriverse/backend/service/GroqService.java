@@ -26,6 +26,9 @@ import java.util.regex.Pattern;
 @Service
 public class GroqService {
 
+    private static final String MEAL_CLARIFICATION =
+            "Sure! Would you like me to plan breakfast, lunch, dinner, or your entire day?";
+
     private static final String NO_FACTS =
             "I don't have verified nutrition values for this food yet. "
                     + "Select a food in Food Search to retrieve its exact source record.";
@@ -133,9 +136,24 @@ public class GroqService {
         if (history == null) history = List.of();
 
         String message = resolveFollowup(history, userMessage);
+        // Use the last assistant response to resolve short meal choices.
+        if (!history.isEmpty()) {
+            Map<String, String> previous = history.getLast();
+            if ("assistant".equals(previous.get("role"))
+                    && MEAL_CLARIFICATION.equals(previous.get("content"))) {
+                String choice = normalize(message);
+                if (Set.of("breakfast", "lunch", "dinner", "snack", "snacks").contains(choice)) {
+                    message = "Plan my meal for " + choice + ".";
+                } else if (Set.of("entire day", "whole day", "full day", "all day", "today").contains(choice)) {
+                    message = "Plan my meals for today, including breakfast, lunch, snacks and dinner.";
+                }
+            }
+        }
         String reply;
 
-        if (isCeliacDeclarationOnly(message)) {
+        if (isAmbiguousMealPlan(message)) {
+            reply = MEAL_CLARIFICATION;
+        } else if (isCeliacDeclarationOnly(message)) {
             reply = "I've saved gluten-free as your dietary restriction. "
                     + "I'll avoid obvious gluten-grain ingredients, but packaged foods "
                     + "still require label checks and cross-contact precautions.";
@@ -189,6 +207,15 @@ public class GroqService {
         if (message == null) return false;
         String t = normalize(message);
         return RECIPE.matcher(t).find() || isMealPlanRequest(message);
+    }
+
+    private static boolean isAmbiguousMealPlan(String message) {
+        if (message == null) return false;
+        String t = normalize(message);
+        boolean singularMealRequest = t.matches(".*\\bplan\\b.*\\bmeal\\b.*")
+                && !t.matches(".*\\bmeals\\b.*");
+        boolean specific = t.matches(".*\\b(breakfast|lunch|dinner|snacks?|morning|evening)\\b.*");
+        return singularMealRequest && !specific;
     }
 
     private static boolean isMealPlanRequest(String message) {
