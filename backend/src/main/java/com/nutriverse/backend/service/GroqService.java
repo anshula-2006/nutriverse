@@ -136,13 +136,16 @@ public class GroqService {
         if (history == null) history = List.of();
 
         String message = resolveFollowup(history, userMessage);
-        // Use the last assistant response to resolve short meal choices.
+        // Continue a clarification without losing dietary preferences.
         if (!history.isEmpty()) {
             Map<String, String> previous = history.getLast();
             if ("assistant".equals(previous.get("role"))
                     && MEAL_CLARIFICATION.equals(previous.get("content"))) {
                 String choice = normalize(message);
-                if (Set.of("breakfast", "lunch", "dinner", "snack", "snacks").contains(choice)) {
+                boolean single = Set.of("breakfast", "lunch", "dinner", "snack", "snacks").contains(choice);
+                boolean day = Set.of("entire day", "whole day", "full day", "all day", "today",
+                        "whole day plan", "full day plan").contains(choice);
+                if (single || day) {
                     String original = "";
                     for (int i = history.size() - 1; i >= 0; i--) {
                         Map<String, String> item = history.get(i);
@@ -151,11 +154,10 @@ public class GroqService {
                             break;
                         }
                     }
-                    message = original.isBlank()
-                            ? "Plan my meal for " + choice + "."
-                            : "Plan my meal for " + choice + ". Original preference: " + original;
-                } else if (Set.of("entire day", "whole day", "full day", "all day", "today").contains(choice)) {
-                    message = "Plan my meals for today, including breakfast, lunch, snacks and dinner.";
+                    message = day
+                            ? "Suggest meal ideas for breakfast, lunch, snacks and dinner today."
+                            : "Suggest a " + choice + " meal idea.";
+                    if (!original.isBlank()) message += " Keep these earlier preferences: " + original;
                 }
             }
         }
@@ -222,21 +224,29 @@ public class GroqService {
     private static boolean isAmbiguousMealPlan(String message) {
         if (message == null) return false;
         String t = normalize(message);
-        boolean singularMealRequest = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need)\\b.*\\bmeal\\b.*")
-                && !t.matches(".*\\bmeals\\b.*");
-        boolean specific = t.matches(".*\\b(breakfast|lunch|dinner|snacks?|morning|evening)\\b.*");
-        return singularMealRequest && !specific;
+        // Requests for facts or logged food are not requests for a new meal idea.
+        if (t.matches(".*\b(?:how much|how many|calories|protein|macros|i ate|i had|i logged|log my meal|my meal history)\b.*"))
+            return false;
+        boolean mealIdea = t.matches(".*\b(?:plan|suggest|recommend|give me|i want|i need|ideas? for|what can i eat)\b.*\bmeal\b.*")
+                || t.matches(".*\bmeal\b.*\b(?:ideas?|suggestions?|plan)\b.*");
+        boolean specifiesMeal = t.matches(".*\b(?:breakfast|lunch|dinner|brunch|snacks?|morning|evening|tonight|midday)\b.*");
+        boolean fullDay = t.matches(".*\b(?:full|whole|entire|all)\s+day\b.*")
+                || t.matches(".*\b(?:today|tomorrow|week|weekly|7 day|seven day)\b.*\b(?:meal plan|meals)\b.*")
+                || t.matches(".*\b(?:meal plan|meals)\b.*\b(?:today|tomorrow|week|weekly|7 day|seven day)\b.*")
+                || t.matches(".*\bmeals\b.*");
+        return mealIdea && !specifiesMeal && !fullDay;
     }
 
     private static boolean isMealPlanRequest(String message) {
         if (message == null) return false;
         String t = normalize(message);
-        return t.matches(".*\\bmeal plans?\\b.*")
-                || t.matches(".*\\bplan (?:my|the|our) meals?\\b.*")
-                || t.matches(".*\\bplan (?:my|the|our) diet\\b.*")
-                || (t.matches(".*\\bplan\\b.*")
-                    && t.contains("breakfast") && t.contains("lunch")
-                    && t.contains("dinner"));
+        boolean plan = t.matches(".*\b(?:meal plans?|plan (?:my|the|our|a|some)?\s*meals?|plan (?:my|the|our) diet|daily menu|weekly menu)\b.*");
+        boolean day = t.matches(".*\b(?:full|whole|entire|all)\s+day\b.*")
+                && t.matches(".*\b(?:food|meal|diet|menu|eat|plan)\b.*");
+        boolean severalMeals = t.contains("breakfast") && t.contains("lunch") && t.contains("dinner");
+        boolean singular = t.matches(".*\b(?:plan|suggest|recommend|give me|i want|i need)\b.*\bmeal\b.*")
+                && t.matches(".*\b(?:breakfast|lunch|dinner|brunch|snack|tonight|morning|evening)\b.*");
+        return plan || day || severalMeals || singular;
     }
 
     public static boolean isQuantitative(String message) {
