@@ -246,7 +246,19 @@ public class GroqService {
         boolean severalMeals = t.contains("breakfast") && t.contains("lunch") && t.contains("dinner");
         boolean singular = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need)\\b.*\\bmeal\\b.*")
                 && t.matches(".*\\b(?:breakfast|lunch|dinner|brunch|snack|tonight|morning|evening)\\b.*");
-        return plan || day || severalMeals || singular;
+        boolean planNamedMeal = t.matches(".*\\b(?:plan|make a plan for|meal idea for)\\b.*\\b(?:breakfast|lunch|dinner|brunch|snack)\\b.*");
+        return plan || day || severalMeals || singular || planNamedMeal;
+    }
+
+    private static boolean isFullDayMealPlanRequest(String message) {
+        if (message == null) return false;
+        String t = normalize(message);
+        return (t.contains("breakfast") && t.contains("lunch") && t.contains("dinner"))
+                || t.matches(".*\\b(?:full|whole|entire|all)\\s+day\\b.*")
+                || t.matches(".*\\b(?:meal plan|meals|menu|diet)\\b.*\\b(?:today|tomorrow|week|weekly|7 day|seven day)\\b.*")
+                || t.matches(".*\\b(?:today|tomorrow|week|weekly|7 day|seven day)\\b.*\\b(?:meal plan|meals|menu)\\b.*")
+                || t.matches(".*\\b(?:daily|weekly)\\s+(?:menu|meal plan)\\b.*")
+                || t.matches(".*\\bplan (?:my|the|our) meals\\b.*");
     }
 
     public static boolean isQuantitative(String message) {
@@ -821,13 +833,13 @@ public class GroqService {
 
         if (isMealPlanRequest(message)) {
             messages.add(msg("system",
-                    "This is a full-day MEAL IDEAS request, not a single-food nutrition lookup. "
-                    + "Give a practical plan with distinct Breakfast, Lunch, Snacks and Dinner sections. "
-                    + "Respect the user's stated and saved dietary restrictions and dislikes. "
-                    + "Treat suggestions as unverified meal ideas, not a medically prescribed diet. "
-                    + "Do NOT invent calories, macronutrients, targets, nutrient figures, "
-                    + "verified source claims or precise calculated totals. "
-                    + "Do not imply anything was logged or checked against a food database."));
+                    isFullDayMealPlanRequest(message)
+                            ? "This is a full-day MEAL IDEAS request. Give distinct Breakfast, Lunch, Snacks and Dinner sections. "
+                            : "This is a SINGLE-MEAL IDEA request. Suggest only the requested meal, not a full-day menu. "
+                    + "Respect stated dietary requirements, saved profile restrictions and dislikes. "
+                    + "Give concise meal names and short descriptions; include full ingredients and cooking steps only if asked. "
+                    + "Do not invent nutrition values, nutrient targets, calorie counts or source verification. "
+                    + "Do not imply the food was logged or medically validated."));
         }
 
         int start = Math.max(0, history.size() - 10);
