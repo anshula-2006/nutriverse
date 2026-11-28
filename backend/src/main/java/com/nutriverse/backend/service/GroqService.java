@@ -153,7 +153,7 @@ public class GroqService {
                     }
                     message = original.isBlank()
                             ? "Plan my meal for " + choice + "."
-                            : original + " for " + choice + ".";
+                            : "Plan my meal for " + choice + ". Original preference: " + original;
                 } else if (Set.of("entire day", "whole day", "full day", "all day", "today").contains(choice)) {
                     message = "Plan my meals for today, including breakfast, lunch, snacks and dinner.";
                 }
