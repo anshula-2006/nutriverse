@@ -225,27 +225,27 @@ public class GroqService {
         if (message == null) return false;
         String t = normalize(message);
         // Requests for facts or logged food are not requests for a new meal idea.
-        if (t.matches(".*\b(?:how much|how many|calories|protein|macros|i ate|i had|i logged|log my meal|my meal history)\b.*"))
+        if (t.matches(".*\\b(?:how much|how many|calories|protein|macros|i ate|i had|i logged|log my meal|my meal history)\\b.*"))
             return false;
-        boolean mealIdea = t.matches(".*\b(?:plan|suggest|recommend|give me|i want|i need|ideas? for|what can i eat)\b.*\bmeal\b.*")
-                || t.matches(".*\bmeal\b.*\b(?:ideas?|suggestions?|plan)\b.*");
-        boolean specifiesMeal = t.matches(".*\b(?:breakfast|lunch|dinner|brunch|snacks?|morning|evening|tonight|midday)\b.*");
-        boolean fullDay = t.matches(".*\b(?:full|whole|entire|all)\s+day\b.*")
-                || t.matches(".*\b(?:today|tomorrow|week|weekly|7 day|seven day)\b.*\b(?:meal plan|meals)\b.*")
-                || t.matches(".*\b(?:meal plan|meals)\b.*\b(?:today|tomorrow|week|weekly|7 day|seven day)\b.*")
-                || t.matches(".*\bmeals\b.*");
+        boolean mealIdea = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need|ideas? for|what can i eat)\\b.*\\bmeal\\b.*")
+                || t.matches(".*\\bmeal\\b.*\\b(?:ideas?|suggestions?|plan)\\b.*");
+        boolean specifiesMeal = t.matches(".*\\b(?:breakfast|lunch|dinner|brunch|snacks?|morning|evening|tonight|midday)\\b.*");
+        boolean fullDay = t.matches(".*\\b(?:full|whole|entire|all)\\s+day\\b.*")
+                || t.matches(".*\\b(?:today|tomorrow|week|weekly|7 day|seven day)\\b.*\\b(?:meal plan|meals)\\b.*")
+                || t.matches(".*\\b(?:meal plan|meals)\\b.*\\b(?:today|tomorrow|week|weekly|7 day|seven day)\\b.*")
+                || t.matches(".*\\bmeals\\b.*");
         return mealIdea && !specifiesMeal && !fullDay;
     }
 
     private static boolean isMealPlanRequest(String message) {
         if (message == null) return false;
         String t = normalize(message);
-        boolean plan = t.matches(".*\b(?:meal plans?|plan (?:my|the|our|a|some)?\s*meals?|plan (?:my|the|our) diet|daily menu|weekly menu)\b.*");
-        boolean day = t.matches(".*\b(?:full|whole|entire|all)\s+day\b.*")
-                && t.matches(".*\b(?:food|meal|diet|menu|eat|plan)\b.*");
+        boolean plan = t.matches(".*\\b(?:meal plans?|plan (?:my|the|our|a|some)?\\s*meals?|plan (?:my|the|our) diet|daily menu|weekly menu)\\b.*");
+        boolean day = t.matches(".*\\b(?:full|whole|entire|all)\\s+day\\b.*")
+                && t.matches(".*\\b(?:food|meal|diet|menu|eat|plan)\\b.*");
         boolean severalMeals = t.contains("breakfast") && t.contains("lunch") && t.contains("dinner");
-        boolean singular = t.matches(".*\b(?:plan|suggest|recommend|give me|i want|i need)\b.*\bmeal\b.*")
-                && t.matches(".*\b(?:breakfast|lunch|dinner|brunch|snack|tonight|morning|evening)\b.*");
+        boolean singular = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need)\\b.*\\bmeal\\b.*")
+                && t.matches(".*\\b(?:breakfast|lunch|dinner|brunch|snack|tonight|morning|evening)\\b.*");
         return plan || day || severalMeals || singular;
     }
 
