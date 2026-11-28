@@ -143,7 +143,17 @@ public class GroqService {
                     && MEAL_CLARIFICATION.equals(previous.get("content"))) {
                 String choice = normalize(message);
                 if (Set.of("breakfast", "lunch", "dinner", "snack", "snacks").contains(choice)) {
-                    message = "Plan my meal for " + choice + ".";
+                    String original = "";
+                    for (int i = history.size() - 1; i >= 0; i--) {
+                        Map<String, String> item = history.get(i);
+                        if ("user".equals(item.get("role"))) {
+                            original = item.getOrDefault("content", "");
+                            break;
+                        }
+                    }
+                    message = original.isBlank()
+                            ? "Plan my meal for " + choice + "."
+                            : original + " for " + choice + ".";
                 } else if (Set.of("entire day", "whole day", "full day", "all day", "today").contains(choice)) {
                     message = "Plan my meals for today, including breakfast, lunch, snacks and dinner.";
                 }
@@ -212,7 +222,7 @@ public class GroqService {
     private static boolean isAmbiguousMealPlan(String message) {
         if (message == null) return false;
         String t = normalize(message);
-        boolean singularMealRequest = t.matches(".*\\bplan\\b.*\\bmeal\\b.*")
+        boolean singularMealRequest = t.matches(".*\\b(?:plan|suggest|recommend|give me|i want|i need)\\b.*\\bmeal\\b.*")
                 && !t.matches(".*\\bmeals\\b.*");
         boolean specific = t.matches(".*\\b(breakfast|lunch|dinner|snacks?|morning|evening)\\b.*");
         return singularMealRequest && !specific;
