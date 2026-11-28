@@ -833,9 +833,9 @@ public class GroqService {
 
         if (isMealPlanRequest(message)) {
             messages.add(msg("system",
-                    isFullDayMealPlanRequest(message)
+                    (isFullDayMealPlanRequest(message)
                             ? "This is a full-day MEAL IDEAS request. Give distinct Breakfast, Lunch, Snacks and Dinner sections. "
-                            : "This is a SINGLE-MEAL IDEA request. Suggest only the requested meal, not a full-day menu. "
+                            : "This is a SINGLE-MEAL IDEA request. Suggest only the requested meal, not a full-day menu. ")
                     + "Respect stated dietary requirements, saved profile restrictions and dislikes. "
                     + "Give concise meal names and short descriptions; include full ingredients and cooking steps only if asked. "
                     + "Do not invent nutrition values, nutrient targets, calorie counts or source verification. "
